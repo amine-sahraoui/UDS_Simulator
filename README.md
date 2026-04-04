@@ -58,7 +58,7 @@ pip install PyQt5
 | SID | Service | Description |
 |-----|---------|-------------|
 | `0x10` | DiagnosticSessionControl | Switch between Default / Extended / Programming |
-| `0x11` | ECUReset | Hard / Key Off / Soft reset |
+| `0x11` | ECUReset | Hard / Soft reset |
 | `0x22` | ReadDataByIdentifier | Read DID value from ECU |
 | `0x27` | SecurityAccess | Seed/Key authentication (XOR 0xFF) |
 

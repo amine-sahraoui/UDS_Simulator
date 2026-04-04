@@ -47,7 +47,11 @@ pip install PyQt5
 
 ## To generate executable File
 
-Run this : pyinstaller --onefile --noconsole --icon=logo_icon.ico --add-data "logo_icon.ico;." --add-data "logo;logo" main.py
+```bash
+ pyinstaller --onefile --noconsole --icon=logo_icon.ico --add-data "logo_icon.ico;." --add-data "logo;logo" main.py
+```
+
+---
 
 ## Supported UDS Services
 

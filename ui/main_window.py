@@ -3,66 +3,78 @@
 # UDS Simulator — Main Window
 # =============================================================================
 
-from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QFrame, QLineEdit,
-    QTableWidget, QTableWidgetItem, QHeaderView,
-    QAbstractItemView, QGroupBox, QSizePolicy
-)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui  import QFont, QColor, QBrush, QPixmap, QBitmap, QPainter
+from PyQt5.QtGui import QBitmap, QBrush, QColor, QFont, QPainter, QPixmap
+from PyQt5.QtWidgets import (
+    QAbstractItemView,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QPushButton,
+    QSizePolicy,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from common.uds_constants import (
-    ROLE_ADMIN, ROLE_TECHNICIAN, ROLE_READER,
-    SESSION_DEFAULT, SESSION_EXTENDED, SESSION_PROGRAMMING,
+    ROLE_ADMIN,
+    ROLE_READER,
+    ROLE_TECHNICIAN,
+    SESSION_DEFAULT,
+    SESSION_EXTENDED,
+    SESSION_PROGRAMMING,
     SID_DIAGNOSTIC_SESSION_CONTROL,
     SID_ECU_RESET,
     SID_READ_DATA_BY_IDENTIFIER,
     SID_SECURITY_ACCESS,
 )
-from utils import build_uds_log_entry, UDS_COLORS
-from utils import resource_path
+from utils import UDS_COLORS, build_uds_log_entry, resource_path
 
 # =============================================================================
 # Colors — light theme
 # =============================================================================
 C = {
-    "bg"           : "#F6F8FA",
-    "white"        : "#FFFFFF",
-    "border"       : "#D0D7DE",
-    "border_focus" : "#0969DA",
-    "text_main"    : "#1E252E",
-    "text_sub"     : "#415568",
-    "accent"       : "#1F883D",
-    "accent_hover" : "#1A7F37",
-    "error"        : "#CF222E",
-    "success"      : "#1F883D",
-    "btn_active"   : "#0969DA",
-    "warning"      : "#9A6700",
+    "bg": "#F6F8FA",
+    "white": "#FFFFFF",
+    "border": "#D0D7DE",
+    "border_focus": "#0969DA",
+    "text_main": "#1E252E",
+    "text_sub": "#415568",
+    "accent": "#1F883D",
+    "accent_hover": "#1A7F37",
+    "error": "#CF222E",
+    "success": "#1F883D",
+    "btn_active": "#0969DA",
+    "warning": "#9A6700",
 }
 
 SESSION_COLORS = {
-    SESSION_DEFAULT     : "#1F883D",
-    SESSION_EXTENDED    : "#0969DA",
-    SESSION_PROGRAMMING : "#9A6700",
+    SESSION_DEFAULT: "#1F883D",
+    SESSION_EXTENDED: "#0969DA",
+    SESSION_PROGRAMMING: "#9A6700",
 }
 
 ROLE_COLORS = {
-    ROLE_ADMIN      : "#921131",
-    ROLE_TECHNICIAN : "#255993",
-    ROLE_READER     : "#2B9A4A",
+    ROLE_ADMIN: "#921131",
+    ROLE_TECHNICIAN: "#255993",
+    ROLE_READER: "#2B9A4A",
 }
 
 
 class MainWindow(QMainWindow):
-
     def __init__(self, client, ecu, role: str, parent=None):
         super().__init__(parent)
         self.client = client
-        self.ecu    = ecu
-        self.role   = role
+        self.ecu = ecu
+        self.role = role
 
-        self.ecu.on_frame_logged    = self._append_log_entry
+        self.ecu.on_frame_logged = self._append_log_entry
         self.client.on_frame_logged = self._append_log_entry
 
         self._setup_window()
@@ -75,11 +87,13 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("UDS Simulator")
         self.setMinimumSize(1000, 680)
         from PyQt5.QtWidgets import QApplication
+
         screen = QApplication.primaryScreen().geometry()
         self.setGeometry(
-            (screen.width()  - 1000) // 2,
-            (screen.height() - 680)  // 2,
-            1000, 680
+            (screen.width() - 1000) // 2,
+            (screen.height() - 680) // 2,
+            1000,
+            680,
         )
 
     # =========================================================================
@@ -127,7 +141,16 @@ class MainWindow(QMainWindow):
             rounded.fill(Qt.transparent)
             painter = QPainter(rounded)
             painter.setRenderHint(QPainter.Antialiasing)
-            painter.setBrush(QBrush(pixmap.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)))
+            painter.setBrush(
+                QBrush(
+                    pixmap.scaled(
+                        size,
+                        size,
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation,
+                    ),
+                ),
+            )
             painter.setPen(Qt.NoPen)
             painter.drawEllipse(0, 0, size, size)
             painter.end()
@@ -156,7 +179,7 @@ class MainWindow(QMainWindow):
         self.lbl_engine = QLabel("● Engine Stopped")
         self.lbl_engine.setObjectName("lbl_engine")
         self.lbl_engine.setStyleSheet(
-            f"color: {C['error']}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;"
+            f"color: {C['error']}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;",
         )
         layout.addWidget(self.lbl_engine)
         layout.addSpacing(12)
@@ -165,7 +188,7 @@ class MainWindow(QMainWindow):
         self.lbl_security = QLabel("🔒 Locked")
         self.lbl_security.setObjectName("lbl_security")
         self.lbl_security.setStyleSheet(
-            f"color: {C['error']}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;"
+            f"color: {C['error']}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;",
         )
         layout.addWidget(self.lbl_security)
         layout.addSpacing(16)
@@ -205,7 +228,7 @@ class MainWindow(QMainWindow):
         input_row.setSpacing(8)
 
         self.input_cmd = QLineEdit()
-        self.input_cmd.setPlaceholderText("Enter UDS Request")        
+        self.input_cmd.setPlaceholderText("Enter UDS Request")
         self.input_cmd.setFixedHeight(40)
         self.input_cmd.returnPressed.connect(self._send_command)
         input_row.addWidget(self.input_cmd, 1)
@@ -238,7 +261,6 @@ class MainWindow(QMainWindow):
 
         # Result label
 
-
         return frame
 
     # -------------------------------------------------------------------------
@@ -261,16 +283,16 @@ class MainWindow(QMainWindow):
 
         # Legend
         for name, color in [
-            ("PCI",      UDS_COLORS["pci"]),
-            ("SID REQ",  UDS_COLORS["sid_request"]),
-            ("DID",      UDS_COLORS["did"]),
+            ("PCI", UDS_COLORS["pci"]),
+            ("SID REQ", UDS_COLORS["sid_request"]),
+            ("DID", UDS_COLORS["did"]),
             ("SID RESP", UDS_COLORS["sid_response"]),
-            ("PAYLOAD",  UDS_COLORS["payload"]),
-            ("PADDING",  UDS_COLORS["padding"]),
+            ("PAYLOAD", UDS_COLORS["payload"]),
+            ("PADDING", UDS_COLORS["padding"]),
         ]:
             dot = QLabel(f"■ {name}")
             dot.setStyleSheet(
-                f"color: {color}; font-family: 'JetBrains Mono'; font-size: 15px;"
+                f"color: {color}; font-family: 'JetBrains Mono'; font-size: 15px;",
             )
             header.addWidget(dot)
             header.addSpacing(2)
@@ -281,24 +303,26 @@ class MainWindow(QMainWindow):
         self.log_table = QTableWidget()
         self.log_table.setObjectName("log_table")
         self.log_table.setColumnCount(7)
-        self.log_table.setHorizontalHeaderLabels([
-            "Time",
-            "Protocol Service",
-            "Service",
-            "CAN ID (HEX)",
-            "Data Bytes (HEX)",
-            "Sender",
-            "Frame type",
-        ])
+        self.log_table.setHorizontalHeaderLabels(
+            [
+                "Time",
+                "Protocol Service",
+                "Service",
+                "CAN ID (HEX)",
+                "Data Bytes (HEX)",
+                "Sender",
+                "Frame type",
+            ],
+        )
 
         hh = self.log_table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Time
         hh.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Protocol Service
         hh.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Service
         hh.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # CAN ID
-        hh.setSectionResizeMode(4, QHeaderView.Stretch)           # Data Bytes
+        hh.setSectionResizeMode(4, QHeaderView.Stretch)  # Data Bytes
         hh.setSectionResizeMode(5, QHeaderView.Fixed)
-        self.log_table.horizontalHeader().resizeSection(5, 180)   # Sender
+        self.log_table.horizontalHeader().resizeSection(5, 180)  # Sender
         hh.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Frame type
 
         self.log_table.verticalHeader().setVisible(False)
@@ -329,8 +353,7 @@ class MainWindow(QMainWindow):
     # COMMAND PARSER
     # =========================================================================
     def _send_command(self):
-        """
-        Parse user command and send it to ECU.
+        """Parse user command and send it to ECU.
 
         Formats:
             0x1001          → DSC Default
@@ -348,12 +371,11 @@ class MainWindow(QMainWindow):
             return
 
         # Normalize — remove 0X prefix
-        if raw.startswith("0X"):
-            raw = raw[2:]
+        raw = raw.removeprefix("0X")
 
         if len(raw) < 2:
             try:
-                padded = raw.ljust(2, '0')
+                padded = raw.ljust(2, "0")
                 val = int(padded, 16)
                 self.client.send_raw([val])
             except ValueError:
@@ -427,7 +449,7 @@ class MainWindow(QMainWindow):
             payload = [0x22]
             # parse every byte from did_part
             for i in range(0, len(did_part), 2):
-                chunk = did_part[i:i+2]
+                chunk = did_part[i : i + 2]
                 if len(chunk) < 2:
                     # odd nibble at the end → send raw incomplete
                     self.client.send_raw([0x22])
@@ -438,10 +460,10 @@ class MainWindow(QMainWindow):
             self.client.send_raw([0x22])
 
     def _parse_security(self, raw: str):
-    
-        #if len(raw) % 2 != 0  :
-            #self.client.send_raw([0x27])
-            #return
+        # if len(raw) % 2 != 0  :
+        #     self.client.send_raw([0x27])
+        #     return
+
         if len(raw) < 4:
             self.client.send_raw([0x27])
             return
@@ -455,7 +477,7 @@ class MainWindow(QMainWindow):
         try:
             payload = [0x27]
             for i in range(2, len(raw), 2):
-                chunk = raw[i:i+2]
+                chunk = raw[i : i + 2]
                 if len(chunk) < 2:
                     self.client.send_raw([0x27, sub])
                     return
@@ -464,6 +486,7 @@ class MainWindow(QMainWindow):
             self._update_security_indicator()
         except ValueError:
             self.client.send_raw([0x27, sub])
+
     # =========================================================================
     # LOG — append entry with 7 columns
     # =========================================================================
@@ -504,12 +527,11 @@ class MainWindow(QMainWindow):
         self.log_table.setItem(row, col, item)
 
     def _make_bytes_widget(self, bytes_list: list) -> QLabel:
-        parts = []
-        for b in bytes_list:
-            parts.append(
-                f'<span style="color:{b["color"]};font-family:JetBrains Mono;font-size:18px;">'
-                f'{b["value"]}</span>'
-            )
+        parts = [
+            f"<span style='color:{b['color']};font-family:JetBrains Mono;font-size:18px;'>{b['value']}</span>"
+            for b in bytes_list
+        ]
+
         label = QLabel(" ".join(parts))
         label.setContentsMargins(6, 0, 6, 0)
         label.setStyleSheet("background: transparent;")
@@ -526,7 +548,6 @@ class MainWindow(QMainWindow):
             0x22: ("UDS", "ReadDataByIdentifier"),
             0x7F: ("UDS", "NegativeResponse"),
             0x27: ("UDS", "SecurityAccess"),
-
         }
         return service_map.get(req_sid, ("UDS", f"0x{sid:02X}"))
 
@@ -538,12 +559,13 @@ class MainWindow(QMainWindow):
     # =========================================================================
     def _update_session_indicator(self):
         from common.uds_constants import SESSION_SERVICE_MATRIX
+
         session = self.ecu.get_current_session()
-        name    = self.ecu.get_session_name()
-        color   = SESSION_COLORS.get(session, C["text_sub"])
+        name = self.ecu.get_session_name()
+        color = SESSION_COLORS.get(session, C["text_sub"])
         self.lbl_session.setText(f"● {name.split('(')[0].strip()}")
         self.lbl_session.setStyleSheet(
-            f"color: {color}; font-family: 'JetBrains Mono'; font-size: 16px; font-weight: bold;"
+            f"color: {color}; font-family: 'JetBrains Mono'; font-size: 16px; font-weight: bold;",
         )
         self._update_engine_indicator()
 
@@ -559,10 +581,10 @@ class MainWindow(QMainWindow):
 
         self.lbl_engine.setText(text)
         self.lbl_engine.setStyleSheet(
-            f"color: {color}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;"
+            f"color: {color}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;",
         )
 
-        if hasattr(self, 'btn_engine'):
+        if hasattr(self, "btn_engine"):
             self.btn_engine.setText(engine_button_text)
 
         self._update_security_indicator()
@@ -577,7 +599,7 @@ class MainWindow(QMainWindow):
 
         self.lbl_security.setText(text)
         self.lbl_security.setStyleSheet(
-            f"color: {color}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;"
+            f"color: {color}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;",
         )
 
     def _set_status(self, message: str):

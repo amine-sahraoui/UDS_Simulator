@@ -9,28 +9,30 @@
 # =============================================================================
 
 import os
-from utils import load_json, save_json, resource_path, did_str_to_int
+
 from common.uds_constants import (
-    ROLE_ADMIN, ROLE_TECHNICIAN, ROLE_READER,
-    ROLE_PERMISSIONS
+    ROLE_ADMIN,
+    ROLE_PERMISSIONS,
+    ROLE_READER,
+    ROLE_TECHNICIAN,
 )
+from utils import did_str_to_int, load_json, resource_path, save_json
 
 
 class DatabaseHandler:
-
     # -------------------------------------------------------------------------
     # Constructor: load both JSON databases.
     # -------------------------------------------------------------------------
     def __init__(
         self,
-        did_db_path : str = "DIDs/did_database.json",
-        users_path  : str = "DIDs/users.json"
+        did_db_path: str = "DIDs/did_database.json",
+        users_path: str = "DIDs/users.json",
     ):
         self.did_db_path = did_db_path
-        self.users_path  = users_path
+        self.users_path = users_path
 
-        self.did_db = {}   # DID database — dict in memory (dynamic)
-        self.users  = {}   # Users database — dict in memory
+        self.did_db = {}  # DID database — dict in memory (dynamic)
+        self.users = {}  # Users database — dict in memory
 
         self._load_databases()
 
@@ -58,18 +60,9 @@ class DatabaseHandler:
     # -------------------------------------------------------------------------
     def _default_users(self) -> dict:
         return {
-            "admin": {
-                "password" : "admin123",
-                "role"     : ROLE_ADMIN
-            },
-            "technician": {
-                "password" : "tech456",
-                "role"     : ROLE_TECHNICIAN
-            },
-            "reader": {
-                "password" : "read789",
-                "role"     : ROLE_READER
-            }
+            "admin": {"password": "admin123", "role": ROLE_ADMIN},
+            "technician": {"password": "tech456", "role": ROLE_TECHNICIAN},
+            "reader": {"password": "read789", "role": ROLE_READER},
         }
 
     # -------------------------------------------------------------------------
@@ -83,8 +76,7 @@ class DatabaseHandler:
     # =========================================================================
 
     def authenticate_user(self, username: str, password: str):
-        """
-        Validate username and password.
+        """Validate username and password.
 
         - If valid: return role (ROLE_ADMIN / ROLE_TECHNICIAN / ROLE_READER)
         - If invalid: return None
@@ -95,14 +87,15 @@ class DatabaseHandler:
 
             role = db.authenticate_user("admin", "wrong")
             # → None
+
         """
         user = self.users.get(username)
 
         if user is None:
-            return None   # Username not found.
+            return None  # Username not found.
 
         if user["password"] != password:
-            return None   # Wrong password.
+            return None  # Wrong password.
 
         return user["role"]
 
@@ -111,8 +104,7 @@ class DatabaseHandler:
     # =========================================================================
 
     def get_did_info(self, did: int) -> dict:
-        """
-        Return complete info for one DID (name, value, type, roles...).
+        """Return complete info for one DID (name, value, type, roles...).
 
         - did    : int — e.g. 0xF40D
         - return : dict from did_database.json
@@ -121,22 +113,25 @@ class DatabaseHandler:
         Example:
             info = db.get_did_info(0xF40D)
             # → {"name": "Vehicle Speed", "value": 50, "unit": "km/h", ...}
+
         """
         # JSON keys are strings like "0xF40D", so convert int → string.
         key = f"0x{did:04X}"
-        return self.did_db.get(key, {
-            "name"     : f"Unknown DID {key}",
-            "readable" : False,
-            "writable" : False,
-            "value"    : None,
-            "unit"     : "",
-            "type"     : "uint8",
-            "roles"    : []
-        })
+        return self.did_db.get(
+            key,
+            {
+                "name": f"Unknown DID {key}",
+                "readable": False,
+                "writable": False,
+                "value": None,
+                "unit": "",
+                "type": "uint8",
+                "roles": [],
+            },
+        )
 
     def get_did_value(self, did: int):
-        """
-        Return current DID value from in-memory runtime data.
+        """Return current DID value from in-memory runtime data.
 
         - did    : int — e.g. 0xF40D
         - return : value (int or string) or None if not found
@@ -145,23 +140,24 @@ class DatabaseHandler:
         return info.get("value")
 
     def get_all_dids(self) -> list[dict]:
-        """
-        Return list of all available DIDs for GUI display.
+        """Return list of all available DIDs for GUI display.
 
         Return: list of dicts. Each dict includes:
             {"did_int": 0xF40D, "did_str": "0xF40D", "name": "Vehicle Speed", ...}
         """
         result = []
         for key, info in self.did_db.items():
-            if key.startswith("_"):      # skip _comment keys
+            if key.startswith("_"):  # skip _comment keys
                 continue
             try:
                 did_int = int(key, 16)
-                result.append({
-                    "did_int" : did_int,
-                    "did_str" : key,
-                    **info       # Include all DID fields (name, value, type, ...)
-                })
+                result.append(
+                    {
+                        "did_int": did_int,
+                        "did_str": key,
+                        **info,  # Include all DID fields (name, value, type, ...)
+                    },
+                )
             except ValueError:
                 continue
         return result
@@ -171,8 +167,7 @@ class DatabaseHandler:
     # =========================================================================
 
     def set_did_value(self, did: int, new_value) -> bool:
-        """
-        Update DID value in memory (not persisted to JSON by default).
+        """Update DID value in memory (not persisted to JSON by default).
 
         - did       : int — e.g. 0xF40D
         - new_value : new value
@@ -188,9 +183,7 @@ class DatabaseHandler:
         return True
 
     def save_did_database(self):
-        """
-        Save current DID database state to did_database.json.
-        """
+        """Save current DID database state to did_database.json."""
         save_json(self.did_db_path, self.did_db)
 
     # =========================================================================
@@ -198,8 +191,7 @@ class DatabaseHandler:
     # =========================================================================
 
     def can_read_did(self, did: int, role: str) -> tuple[bool, str]:
-        """
-        Check whether a role can read the given DID.
+        """Check whether a role can read the given DID.
 
         - return : (True, "") if allowed
                    (False, "reason") if denied
@@ -207,6 +199,7 @@ class DatabaseHandler:
         Example:
             ok, reason = db.can_read_did(0xF190, ROLE_READER)
             # → (False, "Role 'reader' is not allowed for this DID")
+
         """
         info = self.get_did_info(did)
 

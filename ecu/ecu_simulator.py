@@ -13,63 +13,71 @@
 #   0x27 _ Security access
 # =============================================================================
 
+from common.db_handler import DatabaseHandler
 from common.uds_constants import (
+    CLIENT_ADDR,
+    # DID constants
+    DID_ACTIVE_SESSION,
+    DID_VEHICLE_SPEED,
     # Addresses
-    ECU_ADDR, CLIENT_ADDR,
+    ECU_ADDR,
+    NEGATIVE_RESPONSE_SID,
+    NRC_CONDITIONS_NOT_CORRECT,
+    NRC_EXCEEDED_NUMBER_OF_ATTEMPTS,
+    # NRC codes
+    NRC_GENERAL_REJECT,
+    NRC_INCORRECT_MESSAGE_LENGTH,
+    NRC_INVALID_KEY,
+    NRC_REQUEST_OUT_OF_RANGE,
+    NRC_REQUEST_SEQUENCE_ERROR,
+    NRC_REQUEST_TOO_LONG,
+    NRC_SECURITY_ACCESS_DENIED,
+    NRC_SERVICE_NOT_SUPPORTED,
+    NRC_SERVICE_NOT_SUPPORTED_IN_SESSION,
+    NRC_SUBFUNCTION_NOT_SUPPORTED,
+    POSITIVE_RESPONSE_OFFSET,
+    # Resets
+    RESET_HARD,
+    RESET_KEY_OFF,
+    RESET_SOFT,
+    # Sessions
+    SESSION_DEFAULT,
+    SESSION_EXTENDED,
+    SESSION_NAMES,
+    SESSION_PROGRAMMING,
+    SESSION_SERVICE_MATRIX,
     # SIDs
     SID_DIAGNOSTIC_SESSION_CONTROL,
     SID_ECU_RESET,
     SID_READ_DATA_BY_IDENTIFIER,
-    POSITIVE_RESPONSE_OFFSET,
-    NEGATIVE_RESPONSE_SID,
     SID_SECURITY_ACCESS,
-    # Sessions
-    SESSION_DEFAULT, SESSION_EXTENDED, SESSION_PROGRAMMING,
-    SESSION_NAMES, SESSION_SERVICE_MATRIX,
-    # Resets
-    RESET_HARD, RESET_KEY_OFF, RESET_SOFT,
-    # NRC codes
-    NRC_GENERAL_REJECT,
-    NRC_SERVICE_NOT_SUPPORTED,             
-    NRC_SUBFUNCTION_NOT_SUPPORTED,         
-    NRC_INCORRECT_MESSAGE_LENGTH, 
-    NRC_REQUEST_SEQUENCE_ERROR,
-    NRC_INVALID_KEY,                          
-    NRC_REQUEST_OUT_OF_RANGE,                  
-    NRC_SECURITY_ACCESS_DENIED,                                
-    NRC_SERVICE_NOT_SUPPORTED_IN_SESSION,  
-    NRC_CONDITIONS_NOT_CORRECT,
-    NRC_REQUEST_TOO_LONG,
-    NRC_EXCEEDED_NUMBER_OF_ATTEMPTS,
-    # DID constants
-    DID_ACTIVE_SESSION,
-    DID_VEHICLE_SPEED,
 )
-from common.db_handler import DatabaseHandler
 from utils import (
     build_uds_frame,
-    parse_uds_frame,
-    encode_value,
-    decode_value,
     build_uds_log_entry,
+    decode_value,
+    encode_value,
+    parse_uds_frame,
 )
 
 
 class ECUSimulator:
-
     # -------------------------------------------------------------------------
     # Constructor
     # -------------------------------------------------------------------------
     def __init__(self, db: DatabaseHandler, role: str):
+        """Construct a new ECUSimulator instance.
+
+        Arguments:
+            - db   : DatabaseHandler used for DID access and permissions
+            - role : str — connected user role (ROLE_ADMIN, ROLE_TECHNICIAN, ...)
+
         """
-        - db   : DatabaseHandler used for DID access and permissions
-        - role : str — connected user role (ROLE_ADMIN, ROLE_TECHNICIAN, ...)
-        """
-        self.db              = db
-        self.role            = role
-        self.current_session = SESSION_DEFAULT   # ECU starts in Default Session.
+        self.db = db
+        self.role = role
+        self.current_session = SESSION_DEFAULT  # ECU starts in Default Session.
         self._failed_key_attempts = 0
-        self._max_key_attempts    = 3
+        self._max_key_attempts = 3
         self._key_off_allowed = False
         self.engine_running = bool(self.db.get_did_value(DID_VEHICLE_SPEED))
         # Callback used by GUI to receive log entries.
@@ -81,8 +89,7 @@ class ECUSimulator:
     # =========================================================================
 
     def process_request(self, request_frame: list[int]) -> list[int]:
-        """
-        ECU entry point: accepts request frame and returns response frame.
+        """ECU entry point: accepts request frame and returns response frame.
 
         - request_frame : list[int] — 8 bytes (UDS frame complete)
         - return        : list[int] — 8 bytes (response frame)
@@ -113,9 +120,15 @@ class ECUSimulator:
             return response
 
         # -- Check session permissions
-        allowed = SESSION_SERVICE_MATRIX.get(self.current_session, {}).get("allowed_services", [])
+        allowed = SESSION_SERVICE_MATRIX.get(self.current_session, {}).get(
+            "allowed_services",
+            [],
+        )
         if sid not in allowed:
-            response = self._negative_response(sid, NRC_SERVICE_NOT_SUPPORTED_IN_SESSION)
+            response = self._negative_response(
+                sid,
+                NRC_SERVICE_NOT_SUPPORTED_IN_SESSION,
+            )
             self._log(ECU_ADDR, response, "ECU")
             return response
 
@@ -159,7 +172,7 @@ class ECUSimulator:
         if len(payload) < 2:
             return self._negative_response(
                 SID_DIAGNOSTIC_SESSION_CONTROL,
-                NRC_INCORRECT_MESSAGE_LENGTH
+                NRC_INCORRECT_MESSAGE_LENGTH,
             )
 
         # ===============================
@@ -173,7 +186,7 @@ class ECUSimulator:
         if sub_function not in [SESSION_DEFAULT, SESSION_EXTENDED, SESSION_PROGRAMMING]:
             return self._negative_response(
                 SID_DIAGNOSTIC_SESSION_CONTROL,
-                NRC_SUBFUNCTION_NOT_SUPPORTED
+                NRC_SUBFUNCTION_NOT_SUPPORTED,
             )
         # ===============================
         # 4. CONDITIONS (Programming only)
@@ -182,16 +195,16 @@ class ECUSimulator:
             if self.is_engine_running():
                 return self._negative_response(
                     SID_DIAGNOSTIC_SESSION_CONTROL,
-                    NRC_CONDITIONS_NOT_CORRECT
+                    NRC_CONDITIONS_NOT_CORRECT,
                 )
         # ===============================
         # 5. Security check
         # ===============================
         if sub_function == SESSION_EXTENDED:
-            if not getattr(self, '_security_unlocked', False):
+            if not getattr(self, "_security_unlocked", False):
                 return self._negative_response(
                     SID_DIAGNOSTIC_SESSION_CONTROL,
-                    NRC_SECURITY_ACCESS_DENIED
+                    NRC_SECURITY_ACCESS_DENIED,
                 )
 
         # ===============================
@@ -201,7 +214,7 @@ class ECUSimulator:
         if not ok:
             return self._negative_response(
                 SID_DIAGNOSTIC_SESSION_CONTROL,
-                NRC_SECURITY_ACCESS_DENIED
+                NRC_SECURITY_ACCESS_DENIED,
             )
 
         # ===============================
@@ -216,8 +229,10 @@ class ECUSimulator:
         response_payload = [
             SID_DIAGNOSTIC_SESSION_CONTROL + POSITIVE_RESPONSE_OFFSET,
             sub_function,
-            0x00, 0x14,
-            0x00, 0xC8
+            0x00,
+            0x14,
+            0x00,
+            0xC8,
         ]
 
         return build_uds_frame(response_payload)
@@ -230,40 +245,33 @@ class ECUSimulator:
     # -------------------------------------------------------------------------
     def _handle_reset(self, payload: list[int]) -> list[int]:
         if len(payload) < 2:
-            return self._negative_response(SID_ECU_RESET,
-                                           NRC_INCORRECT_MESSAGE_LENGTH)
+            return self._negative_response(SID_ECU_RESET, NRC_INCORRECT_MESSAGE_LENGTH)
 
         reset_type = payload[1]
 
         # Reset type valid?
         if reset_type not in [RESET_SOFT, RESET_HARD]:
-            return self._negative_response(SID_ECU_RESET,
-                                           NRC_SUBFUNCTION_NOT_SUPPORTED)
+            return self._negative_response(SID_ECU_RESET, NRC_SUBFUNCTION_NOT_SUPPORTED)
         if reset_type in [RESET_KEY_OFF, RESET_HARD]:
-            if not getattr(self, '_security_unlocked', False):
+            if not getattr(self, "_security_unlocked", False):
                 return self._negative_response(
                     SID_ECU_RESET,
-                    NRC_SECURITY_ACCESS_DENIED
-            )
+                    NRC_SECURITY_ACCESS_DENIED,
+                )
         # Role check
         ok, reason = self.db.can_reset_ecu(self.role)
         if not ok:
-            return self._negative_response(SID_ECU_RESET,
-                                           NRC_SECURITY_ACCESS_DENIED)
+            return self._negative_response(SID_ECU_RESET, NRC_SECURITY_ACCESS_DENIED)
 
         # Reset — ECU returns to Default Session.
         self.current_session = SESSION_DEFAULT
         self.db.set_did_value(DID_ACTIVE_SESSION, SESSION_DEFAULT)
 
-        
         self._failed_key_attempts = 0
-        self._security_unlocked   = False  # ← lock again
-        self._seed                = None   # ← clear seed
+        self._security_unlocked = False  # ← lock again
+        self._seed = None  # ← clear seed
 
-        response_payload = [
-            SID_ECU_RESET + POSITIVE_RESPONSE_OFFSET,
-            reset_type
-        ]
+        response_payload = [SID_ECU_RESET + POSITIVE_RESPONSE_OFFSET, reset_type]
         return build_uds_frame(response_payload)
 
     # -------------------------------------------------------------------------
@@ -282,7 +290,7 @@ class ECUSimulator:
         if length < 3:
             return self._negative_response(
                 SID_READ_DATA_BY_IDENTIFIER,
-                NRC_INCORRECT_MESSAGE_LENGTH
+                NRC_INCORRECT_MESSAGE_LENGTH,
             )
 
         if length > 3:
@@ -290,13 +298,12 @@ class ECUSimulator:
             if did_bytes % 2 == 0:
                 return self._negative_response(
                     SID_READ_DATA_BY_IDENTIFIER,
-                    NRC_REQUEST_TOO_LONG
+                    NRC_REQUEST_TOO_LONG,
                 )
-            else:
-                return self._negative_response(
-                    SID_READ_DATA_BY_IDENTIFIER,
-                    NRC_INCORRECT_MESSAGE_LENGTH
-                )
+            return self._negative_response(
+                SID_READ_DATA_BY_IDENTIFIER,
+                NRC_INCORRECT_MESSAGE_LENGTH,
+            )
 
         # -------------------------------
         # 1. Extract DID
@@ -310,7 +317,7 @@ class ECUSimulator:
             if not getattr(self, "_security_unlocked", False):
                 return self._negative_response(
                     SID_READ_DATA_BY_IDENTIFIER,
-                    NRC_SECURITY_ACCESS_DENIED
+                    NRC_SECURITY_ACCESS_DENIED,
                 )
 
         # -------------------------------
@@ -320,7 +327,7 @@ class ECUSimulator:
         if did_info["value"] is None:
             return self._negative_response(
                 SID_READ_DATA_BY_IDENTIFIER,
-                NRC_REQUEST_OUT_OF_RANGE
+                NRC_REQUEST_OUT_OF_RANGE,
             )
 
         # -------------------------------
@@ -330,7 +337,7 @@ class ECUSimulator:
         if not ok:
             return self._negative_response(
                 SID_READ_DATA_BY_IDENTIFIER,
-                NRC_SECURITY_ACCESS_DENIED
+                NRC_SECURITY_ACCESS_DENIED,
             )
 
         # -------------------------------
@@ -341,7 +348,7 @@ class ECUSimulator:
             if speed != 0:
                 return self._negative_response(
                     SID_READ_DATA_BY_IDENTIFIER,
-                    NRC_CONDITIONS_NOT_CORRECT
+                    NRC_CONDITIONS_NOT_CORRECT,
                 )
 
         # -------------------------------
@@ -353,7 +360,7 @@ class ECUSimulator:
             SID_READ_DATA_BY_IDENTIFIER + POSITIVE_RESPONSE_OFFSET,
             (did >> 8) & 0xFF,
             did & 0xFF,
-            *value_bytes
+            *value_bytes,
         ]
 
         # -------------------------------
@@ -362,10 +369,11 @@ class ECUSimulator:
         if len(response_payload) > 7:
             return self._negative_response(
                 SID_READ_DATA_BY_IDENTIFIER,
-                NRC_REQUEST_TOO_LONG
+                NRC_REQUEST_TOO_LONG,
             )
 
         return build_uds_frame(response_payload)
+
     # -------------------------------------------------------------------------
     # 0x27 — SecurityAccess
     # -------------------------------------------------------------------------
@@ -375,51 +383,61 @@ class ECUSimulator:
     # Response key : [0x67, 0x02]
     # -------------------------------------------------------------------------
     def _handle_security_access(self, payload: list[int]) -> list[int]:
- 
         if len(payload) < 2:
-            return self._negative_response(SID_SECURITY_ACCESS,
-                                        NRC_SUBFUNCTION_NOT_SUPPORTED)
+            return self._negative_response(
+                SID_SECURITY_ACCESS,
+                NRC_SUBFUNCTION_NOT_SUPPORTED,
+            )
         sub = payload[1]
 
         if sub not in [0x01, 0x02]:
-            return self._negative_response(SID_SECURITY_ACCESS,
-                                        NRC_SUBFUNCTION_NOT_SUPPORTED)
+            return self._negative_response(
+                SID_SECURITY_ACCESS,
+                NRC_SUBFUNCTION_NOT_SUPPORTED,
+            )
 
         # -- 0x01: Seed request
         if sub == 0x01:
             # must be exactly [0x27, 0x01] — no extra bytes
             if len(payload) != 2:
-                return self._negative_response(SID_SECURITY_ACCESS,
-                                            NRC_SUBFUNCTION_NOT_SUPPORTED)
+                return self._negative_response(
+                    SID_SECURITY_ACCESS,
+                    NRC_SUBFUNCTION_NOT_SUPPORTED,
+                )
             self._seed = [0x12, 0x34]
             response_payload = [
                 SID_SECURITY_ACCESS + POSITIVE_RESPONSE_OFFSET,
                 0x01,
-                *self._seed
+                *self._seed,
             ]
             return build_uds_frame(response_payload)
 
         # -- 0x02: Key send
-        elif sub == 0x02:
+        if sub == 0x02:
             # Check seed requested first
-            if not hasattr(self, '_seed') or self._seed is None:
-                return self._negative_response(SID_SECURITY_ACCESS,
-                                            NRC_REQUEST_SEQUENCE_ERROR)
+            if not hasattr(self, "_seed") or self._seed is None:
+                return self._negative_response(
+                    SID_SECURITY_ACCESS,
+                    NRC_REQUEST_SEQUENCE_ERROR,
+                )
 
             # Check if locked out
             if self._failed_key_attempts >= self._max_key_attempts:
-                return self._negative_response(SID_SECURITY_ACCESS,
-                                            NRC_EXCEEDED_NUMBER_OF_ATTEMPTS)
+                return self._negative_response(
+                    SID_SECURITY_ACCESS,
+                    NRC_EXCEEDED_NUMBER_OF_ATTEMPTS,
+                )
 
             # Any payload for 0x02 that isn't exactly 4 bytes → invalid key
             if len(payload) != 4:
                 self._failed_key_attempts += 1
                 if self._failed_key_attempts >= self._max_key_attempts:
                     self._seed = None
-                    return self._negative_response(SID_SECURITY_ACCESS,
-                                                NRC_EXCEEDED_NUMBER_OF_ATTEMPTS)
-                return self._negative_response(SID_SECURITY_ACCESS,
-                                            NRC_INVALID_KEY)
+                    return self._negative_response(
+                        SID_SECURITY_ACCESS,
+                        NRC_EXCEEDED_NUMBER_OF_ATTEMPTS,
+                    )
+                return self._negative_response(SID_SECURITY_ACCESS, NRC_INVALID_KEY)
 
             # Check key
             received_key = [payload[2], payload[3]]
@@ -429,28 +447,27 @@ class ECUSimulator:
                 self._failed_key_attempts += 1
                 if self._failed_key_attempts >= self._max_key_attempts:
                     self._seed = None
-                    return self._negative_response(SID_SECURITY_ACCESS,
-                                                NRC_EXCEEDED_NUMBER_OF_ATTEMPTS)
-                return self._negative_response(SID_SECURITY_ACCESS,
-                                            NRC_INVALID_KEY)
+                    return self._negative_response(
+                        SID_SECURITY_ACCESS,
+                        NRC_EXCEEDED_NUMBER_OF_ATTEMPTS,
+                    )
+                return self._negative_response(SID_SECURITY_ACCESS, NRC_INVALID_KEY)
 
             # Correct key
             self._failed_key_attempts = 0
-            self._security_unlocked   = True
-            self._seed                = None
+            self._security_unlocked = True
+            self._seed = None
 
-            response_payload = [
-                SID_SECURITY_ACCESS + POSITIVE_RESPONSE_OFFSET,
-                0x02
-            ]
+            response_payload = [SID_SECURITY_ACCESS + POSITIVE_RESPONSE_OFFSET, 0x02]
             return build_uds_frame(response_payload)
+
     # =========================================================================
     # HELPERS
     # =========================================================================
 
     def _negative_response(self, sid: int, nrc: int) -> list[int]:
-        """
-        Build Negative Response frame.
+        """Build Negative Response frame.
+
         Format: [0x7F, SID, NRC, padding...]
 
         Ex: [0x7F, 0x22, 0x31, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA]
@@ -459,10 +476,7 @@ class ECUSimulator:
         return build_uds_frame(payload)
 
     def _log(self, addr: int, frame: list[int], sender: str):
-        """
-        Send log entry to GUI via callback.
-        No-op if callback is not connected.
-        """
+        """Send log entry to GUI via callback. No-op if callback is not connected."""
         if self.on_frame_logged:
             entry = build_uds_log_entry(addr, frame, sender)
             self.on_frame_logged(entry)
@@ -485,7 +499,7 @@ class ECUSimulator:
 
     def is_security_unlocked(self) -> bool:
         """Return whether security access is unlocked or locked."""
-        return getattr(self, '_security_unlocked', False)
+        return getattr(self, "_security_unlocked", False)
 
     def start_engine(self) -> bool:
         """Start engine by updating vehicle speed and RPM state."""

@@ -14,37 +14,36 @@
 
 from common.uds_constants import (
     # Addresses
-    CLIENT_ADDR, ECU_ADDR,
+    CLIENT_ADDR,
+    ECU_ADDR,
+    NEGATIVE_RESPONSE_SID,
+    # NRC
+    NRC_NAMES,
+    # Resets
+    RESET_HARD,
+    RESET_NAMES,
+    # Security Access
+    SEC_NAMES,
+    # Sessions
+    SESSION_NAMES,
     # SIDs
     SID_DIAGNOSTIC_SESSION_CONTROL,
     SID_ECU_RESET,
     SID_READ_DATA_BY_IDENTIFIER,
-    NEGATIVE_RESPONSE_SID,
-    # Sessions
-    SESSION_NAMES,
-    # Resets
-    RESET_HARD, RESET_NAMES,
-    # Security Access
-    SEC_NAMES,
-    # NRC
-    NRC_NAMES,
 )
 from utils import (
     build_uds_frame,
-    parse_uds_frame,
     build_uds_log_entry,
+    parse_uds_frame,
 )
 
 
 class UDSClient:
-
     # -------------------------------------------------------------------------
     # Constructor
     # -------------------------------------------------------------------------
     def __init__(self, ecu):
-        """
-        ecu: ECUSimulator direct reference used to send requests without CAN hardware.
-        """
+        """ecu: ECUSimulator direct reference used to send requests without CAN hardware."""
         self.ecu = ecu
 
         # Callback used by the GUI to receive log entries.
@@ -55,8 +54,7 @@ class UDSClient:
     # =========================================================================
 
     def _send(self, payload: list[int]) -> dict:
-        """
-        Build a UDS frame from payload, send it to ECU, and return parsed response.
+        """Build a UDS frame from payload, send it to ECU, and return parsed response.
 
         - payload : list[int] — UDS bytes without PCI (e.g. [0x10, 0x03])
         - return  : dict with response info:
@@ -89,43 +87,43 @@ class UDSClient:
             response_payload = parse_uds_frame(response_frame)
         except ValueError:
             return {
-                "success"  : False,
-                "sid"      : 0x00,
-                "payload"  : [],
-                "nrc"      : None,
-                "nrc_name" : "Invalid response frame"
+                "success": False,
+                "sid": 0x00,
+                "payload": [],
+                "nrc": None,
+                "nrc_name": "Invalid response frame",
             }
 
         if not response_payload:
             return {
-                "success"  : False,
-                "sid"      : 0x00,
-                "payload"  : [],
-                "nrc"      : None,
-                "nrc_name" : "Empty response"
+                "success": False,
+                "sid": 0x00,
+                "payload": [],
+                "nrc": None,
+                "nrc_name": "Empty response",
             }
 
         response_sid = response_payload[0]
 
         # 5. Negative response? [0x7F, SID, NRC]
         if response_sid == NEGATIVE_RESPONSE_SID:
-            nrc      = response_payload[2] if len(response_payload) >= 3 else 0x00
+            nrc = response_payload[2] if len(response_payload) >= 3 else 0x00
             nrc_name = NRC_NAMES.get(nrc, f"Unknown NRC 0x{nrc:02X}")
             return {
-                "success"  : False,
-                "sid"      : response_sid,
-                "payload"  : response_payload,
-                "nrc"      : nrc,
-                "nrc_name" : nrc_name
+                "success": False,
+                "sid": response_sid,
+                "payload": response_payload,
+                "nrc": nrc,
+                "nrc_name": nrc_name,
             }
 
         # Positive response
         return {
-            "success"  : True,
-            "sid"      : response_sid,
-            "payload"  : response_payload,
-            "nrc"      : None,
-            "nrc_name" : None
+            "success": True,
+            "sid": response_sid,
+            "payload": response_payload,
+            "nrc": None,
+            "nrc_name": None,
         }
 
     # =========================================================================
@@ -136,8 +134,7 @@ class UDSClient:
     # 0x10 — DiagnosticSessionControl
     # -------------------------------------------------------------------------
     def change_session(self, session: int) -> dict:
-        """
-        Change UDS session.
+        """Change UDS session.
 
         - session : int — SESSION_DEFAULT / SESSION_EXTENDED / SESSION_PROGRAMMING
         - return  : dict result (success, session_name, nrc...)
@@ -149,12 +146,15 @@ class UDSClient:
             result = client.change_session(SESSION_EXTENDED)
             # result["success"] → True
             # result["session_name"] → "Extended Session (0x03)"
+
         """
         payload = [SID_DIAGNOSTIC_SESSION_CONTROL, session]
-        result  = self._send(payload)
+        result = self._send(payload)
 
         if result["success"]:
-            result["session_name"] = SESSION_NAMES.get(session, f"Unknown 0x{session:02X}")
+            result["session_name"] = SESSION_NAMES.get(
+                session, f"Unknown 0x{session:02X}",
+            )
 
         return result
 
@@ -162,8 +162,7 @@ class UDSClient:
     # 0x11 — ECUReset
     # -------------------------------------------------------------------------
     def reset_ecu(self, reset_type: int = RESET_HARD) -> dict:
-        """
-        Reset ECU.
+        """Reset ECU.
 
         - reset_type : int — RESET_HARD / RESET_KEY_OFF / RESET_SOFT
         - return     : dict result
@@ -175,12 +174,15 @@ class UDSClient:
             result = client.reset_ecu(RESET_SOFT)
             # result["success"] → True
             # result["reset_name"] → "Soft Reset (0x03)"
+
         """
         payload = [SID_ECU_RESET, reset_type]
-        result  = self._send(payload)
+        result = self._send(payload)
 
         if result["success"]:
-            result["reset_name"] = RESET_NAMES.get(reset_type, f"Unknown 0x{reset_type:02X}")
+            result["reset_name"] = RESET_NAMES.get(
+                reset_type, f"Unknown 0x{reset_type:02X}",
+            )
 
         return result
 
@@ -188,8 +190,7 @@ class UDSClient:
     # 0x22 — ReadDataByIdentifier
     # -------------------------------------------------------------------------
     def read_did(self, did: int) -> dict:
-        """
-        Read a single DID value.
+        """Read a single DID value.
 
         - did    : int — e.g. 0xF40D
         - return : dict result + decoded value
@@ -205,25 +206,28 @@ class UDSClient:
             # result["raw_bytes"]  → [0x32]
             # result["value"]      → 50  (decoded)
             # result["unit"]       → "km/h"
+
         """
-        did_h   = (did >> 8) & 0xFF
-        did_l   =  did       & 0xFF
+        did_h = (did >> 8) & 0xFF
+        did_l = did & 0xFF
         payload = [SID_READ_DATA_BY_IDENTIFIER, did_h, did_l]
-        result  = self._send(payload)
+        result = self._send(payload)
 
         if result["success"]:
-            resp        = result["payload"]   # [0x62, DID_H, DID_L, value...]
-            raw_bytes   = resp[3:] if len(resp) > 3 else []
-            did_info    = self.ecu.db.get_did_info(did)
+            resp = result["payload"]  # [0x62, DID_H, DID_L, value...]
+            raw_bytes = resp[3:] if len(resp) > 3 else []
+            did_info = self.ecu.db.get_did_info(did)
 
-            result["did"]       = did
-            result["did_name"]  = did_info.get("name", f"DID 0x{did:04X}")
+            result["did"] = did
+            result["did_name"] = did_info.get("name", f"DID 0x{did:04X}")
             result["raw_bytes"] = raw_bytes
-            result["unit"]      = did_info.get("unit", "")
+            result["unit"] = did_info.get("unit", "")
 
             # Decode value
             try:
-                result["value"] = self._decode_did_value(raw_bytes, did_info.get("type", "uint8"))
+                result["value"] = self._decode_did_value(
+                    raw_bytes, did_info.get("type", "uint8"),
+                )
             except Exception:
                 result["value"] = raw_bytes  # Keep raw bytes if decoding fails.
 
@@ -234,27 +238,25 @@ class UDSClient:
     # =========================================================================
 
     def _decode_did_value(self, raw_bytes: list[int], value_type: str):
-        """
-        Decode raw bytes to Python value by type (proxy to utils.decode_value).
-        """
+        """Decode raw bytes to Python value by type (proxy to utils.decode_value)."""
         from utils import decode_value
+
         return decode_value(raw_bytes, value_type)
 
     def send_raw(self, payload: list[int]) -> dict:
         from utils import build_uds_frame, build_uds_log_entry
+
         frame = build_uds_frame(payload)
-        
+
         if self.on_frame_logged:
             entry = build_uds_log_entry(CLIENT_ADDR, frame, "Client(DiagBox)")
-            self.on_frame_logged(entry) 
-        
+            self.on_frame_logged(entry)
+
         response_frame = self.ecu.process_request(frame)
         return {"success": False, "payload": response_frame}
-    
+
     def _log(self, addr: int, frame: list[int], sender: str):
-        """
-        Send a log entry to GUI via callback. No-op if callback is not connected.
-        """
+        """Send a log entry to GUI via callback. No-op if callback is not connected."""
         if self.on_frame_logged:
             entry = build_uds_log_entry(addr, frame, sender)
             self.on_frame_logged(entry)

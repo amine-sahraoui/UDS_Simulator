@@ -6,10 +6,11 @@
 # It does not implement UDS business logic directly, but is used by ECU, client, and GUI.
 # =============================================================================
 
+import json
 import os
 import sys
-import json
 from datetime import datetime
+
 
 def resource_path(relative_path):
     try:
@@ -17,6 +18,7 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
 
 # -----------------------------------------------------------------------------
 # 1. resource_path — PyInstaller compatibility
@@ -26,14 +28,14 @@ def resource_path(relative_path):
 # resource_path() returns the correct path in both development and packaged modes.
 # -----------------------------------------------------------------------------
 
+
 def resource_path(relative_path: str) -> str:
-    """
-    Return an absolute path compatible with both PyInstaller and development mode.
+    """Return an absolute path compatible with both PyInstaller and development mode.
 
     Development mode: resolve relative to this script directory.
     Packaged mode: resolve relative to PyInstaller's temporary _MEIPASS folder.
     """
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         # Packaged mode: files are extracted in a temporary folder.
         base_path = sys._MEIPASS
     else:
@@ -58,6 +60,7 @@ def resource_path(relative_path: str) -> str:
 
 from common.uds_constants import UDS_FRAME_SIZE, UDS_PADDING_BYTE
 
+
 # =============================================================================
 # utils.py — updated frame helpers
 # =============================================================================
@@ -65,8 +68,7 @@ from common.uds_constants import UDS_FRAME_SIZE, UDS_PADDING_BYTE
 # 1. build_uds_frame — Construct UDS frame from payload
 # -------------------------------------------------------------------------
 def build_uds_frame(payload: list[int]) -> list[int]:
-    """
-    Build complete 8-byte UDS frame from payload.
+    """Build complete 8-byte UDS frame from payload.
 
     - payload : list of bytes (UDS payload without PCI)
     - returns : list of 8 bytes (PCI + payload + padding)
@@ -78,7 +80,7 @@ def build_uds_frame(payload: list[int]) -> list[int]:
     if len(payload) > UDS_FRAME_SIZE - 1:
         # Too long for single frame → should trigger NRC upstream
         raise ValueError(
-            f"Payload too long for Single Frame: {len(payload)} bytes (max 7)."
+            f"Payload too long for Single Frame: {len(payload)} bytes (max 7).",
         )
 
     # PCI byte: High nibble = 0 (SF), Low nibble = payload length
@@ -95,8 +97,7 @@ def build_uds_frame(payload: list[int]) -> list[int]:
 # 2. parse_uds_frame — Extract payload from UDS frame
 # -------------------------------------------------------------------------
 def parse_uds_frame(frame: list[int]) -> list[int]:
-    """
-    Parse UDS frame → extract payload (no PCI, no padding)
+    """Parse UDS frame → extract payload (no PCI, no padding).
 
     - frame : list of 8 bytes
     - returns : list of payload bytes
@@ -110,12 +111,10 @@ def parse_uds_frame(frame: list[int]) -> list[int]:
 
     pci_byte = frame[0]
     frame_type = (pci_byte & 0xF0) >> 4  # High nibble = frame type
-    payload_len = pci_byte & 0x0F        # Low nibble = payload length
+    payload_len = pci_byte & 0x0F  # Low nibble = payload length
 
     if frame_type != 0x0:
-        raise ValueError(
-            f"Only Single Frame supported. PCI type=0x{frame_type:X}"
-        )
+        raise ValueError(f"Only Single Frame supported. PCI type=0x{frame_type:X}")
 
     # Extract real payload (ignore padding)
     payload = frame[1 : 1 + payload_len]
@@ -123,10 +122,11 @@ def parse_uds_frame(frame: list[int]) -> list[int]:
     # Extra check: payload length cannot exceed 7
     if payload_len > UDS_FRAME_SIZE - 1:
         raise ValueError(
-            f"Invalid payload length {payload_len}, exceeds Single Frame limit"
+            f"Invalid payload length {payload_len}, exceeds Single Frame limit",
         )
 
     return payload
+
 
 # -----------------------------------------------------------------------------
 # 5. did_str_to_int — Convert DID string → int
@@ -135,9 +135,10 @@ def parse_uds_frame(frame: list[int]) -> list[int]:
 # Convert them to integers so they can be compared with bytes from UDS frames.
 # -----------------------------------------------------------------------------
 
+
 def did_str_to_int(did_str: str) -> int:
-    """
-    Convert DID string → int.
+    """Convert DID string → int.
+
     "0xF40D" → 0xF40D (= 62477)
     "F40D"   → 0xF40D  (with or without 0x prefix)
     """
@@ -145,8 +146,8 @@ def did_str_to_int(did_str: str) -> int:
 
 
 def did_int_to_str(did_int: int) -> str:
-    """
-    Convert DID int → formatted string.
+    """Convert DID int → formatted string.
+
     0xF40D → "0xF40D"
     """
     return f"0x{did_int:04X}"
@@ -160,9 +161,9 @@ def did_int_to_str(did_int: int) -> str:
 # decode_value: list of bytes → Python value (after reception)
 # -----------------------------------------------------------------------------
 
+
 def encode_value(value, value_type: str) -> list[int]:
-    """
-    Convert Python value → list of bytes for a UDS frame.
+    """Convert Python value → list of bytes for a UDS frame.
 
     Supported types:
     - uint8   : 1 byte  (e.g. 50  → [0x32])
@@ -173,62 +174,55 @@ def encode_value(value, value_type: str) -> list[int]:
     if value_type == "uint8":
         return [int(value) & 0xFF]
 
-    elif value_type == "uint16":
+    if value_type == "uint16":
         v = int(value) & 0xFFFF
-        return [(v >> 8) & 0xFF, v & 0xFF]   # big-endian
+        return [(v >> 8) & 0xFF, v & 0xFF]  # big-endian
 
-    elif value_type == "uint32":
+    if value_type == "uint32":
         v = int(value) & 0xFFFFFFFF
-        return [
-            (v >> 24) & 0xFF,
-            (v >> 16) & 0xFF,
-            (v >>  8) & 0xFF,
-             v        & 0xFF
-        ]
+        return [(v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF]
 
-    elif value_type == "string":
+    if value_type == "string":
         return list(str(value).encode("ascii"))
 
-    else:
-        raise ValueError(f"Unknown value type: {value_type}")
+    raise ValueError(f"Unknown value type: {value_type}")
 
 
 def decode_value(raw_bytes: list[int], value_type: str):
-    """
-    Convert list of bytes → Python value.
+    """Convert list of bytes → Python value.
 
     Inverse of encode_value.
     """
     if value_type == "uint8":
         return raw_bytes[0]
 
-    elif value_type == "uint16":
+    if value_type == "uint16":
         return (raw_bytes[0] << 8) | raw_bytes[1]
 
-    elif value_type == "uint32":
+    if value_type == "uint32":
         return (
-            (raw_bytes[0] << 24) |
-            (raw_bytes[1] << 16) |
-            (raw_bytes[2] <<  8) |
-             raw_bytes[3]
+            (raw_bytes[0] << 24)
+            | (raw_bytes[1] << 16)
+            | (raw_bytes[2] << 8)
+            | raw_bytes[3]
         )
 
-    elif value_type == "string":
+    if value_type == "string":
         return bytes(raw_bytes).decode("ascii", errors="replace")
 
-    else:
-        raise ValueError(f"Unknown value type: {value_type}")
+    raise ValueError(f"Unknown value type: {value_type}")
 
 
 # -----------------------------------------------------------------------------
 # 7. load_json / save_json — JSON file helpers
 # -----------------------------------------------------------------------------
 
+
 def load_json(path: str) -> dict:
     """Load a JSON file and return a dictionary. Return {} if file is missing."""
     full_path = resource_path(path)
     if os.path.exists(full_path):
-        with open(full_path, 'r', encoding='utf-8') as f:
+        with open(full_path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -237,8 +231,9 @@ def save_json(path: str, data: dict) -> None:
     """Save dictionary to a JSON file (indent=2 for readability)."""
     full_path = resource_path(path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, 'w', encoding='utf-8') as f:
+    with open(full_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
 
 # -----------------------------------------------------------------------------
 # 4. build_uds_log_entry — Format UDS frame -> structured dict for GUI log
@@ -257,98 +252,112 @@ def save_json(path: str, data: dict) -> None:
 
 # Colors imported directly by the GUI.
 UDS_COLORS = {
-    "pci"          : "#FF4444",
-    "sid_request"  : "#4488FF",
-    "did"          : "#44CCCC",
-    "sid_response" : "#44AAFF",
-    "payload"      : "#1FB155",
-    "padding"      : "#888888",
-    "addr"         : "#FF8800",
+    "pci": "#FF4444",
+    "sid_request": "#4488FF",
+    "did": "#44CCCC",
+    "sid_response": "#44AAFF",
+    "payload": "#1FB155",
+    "padding": "#888888",
+    "addr": "#FF8800",
 }
 
+
 def build_uds_log_entry(
-    addr       : int,
-    frame      : list[int],
-    sender     : str,
-    frame_type : str = "Single Frame (SF)"
+    addr: int,
+    frame: list[int],
+    sender: str,
+    frame_type: str = "Single Frame (SF)",
 ) -> dict:
-    """
-    Return a structured frame dictionary for GUI visualization.
+    """Return a structured frame dictionary for GUI visualization.
 
     - addr       : int   (e.g. 0x7E0)
     - frame      : list  (8 bytes total: PCI + payload + padding)
     - sender     : str   ("Client" or "ECU")
     - frame_type : str   (default: "Single Frame (SF)")
     """
+    import time
+
     from common.uds_constants import (
-        UDS_FRAME_SIZE, UDS_PADDING_BYTE,
-        POSITIVE_RESPONSE_OFFSET, NEGATIVE_RESPONSE_SID,
-        SESSION_NAMES, RESET_NAMES,SEC_NAMES,
-        SID_DIAGNOSTIC_SESSION_CONTROL, SID_ECU_RESET,
-        SID_READ_DATA_BY_IDENTIFIER, SID_SECURITY_ACCESS,
+        NEGATIVE_RESPONSE_SID,
         NRC_NAMES,
+        POSITIVE_RESPONSE_OFFSET,
+        RESET_NAMES,
+        SEC_NAMES,
+        SESSION_NAMES,
+        SID_DIAGNOSTIC_SESSION_CONTROL,
+        SID_ECU_RESET,
+        SID_READ_DATA_BY_IDENTIFIER,
+        SID_SECURITY_ACCESS,
+        UDS_FRAME_SIZE,
+        UDS_PADDING_BYTE,
     )
 
-    import time
     timestamp = f"{time.time() % 10:.3f}"
 
     colored_bytes = []
 
     if len(frame) != UDS_FRAME_SIZE:
-        for b in frame:
-            colored_bytes.append({"value": f"{b:02X}", "color": "#FF0000"})
+        colored_bytes.extend({"value": f"{b:02X}", "color": "#FF0000"} for b in frame)
         return {
-            "time": timestamp, "addr": f"0x{addr:03X}",
-            "sender": sender, "frame_type": "Invalid Frame",
-            "bytes": colored_bytes, "protocol": "UDS", "service": ""
+            "time": timestamp,
+            "addr": f"0x{addr:03X}",
+            "sender": sender,
+            "frame_type": "Invalid Frame",
+            "bytes": colored_bytes,
+            "protocol": "UDS",
+            "service": "",
         }
 
-    pci         = frame[0]
+    pci = frame[0]
     payload_len = pci & 0x0F
     colored_bytes.append({"value": f"{pci:02X}", "color": UDS_COLORS["pci"]})
 
     payload = frame[1 : 1 + payload_len]
 
     KNOWN_SIDS = [0x10, 0x11, 0x22, 0x27, 0x2E, 0x31, 0x36, 0x3E]
-    DID_SIDS   = [0x22, 0x2E]
+    DID_SIDS = [0x22, 0x2E]
 
     req_sid = 0
     if payload:
         sid = payload[0]
-        req_sid = sid - POSITIVE_RESPONSE_OFFSET if (
-            sid >= POSITIVE_RESPONSE_OFFSET
-            and sid != NEGATIVE_RESPONSE_SID
-            and (sid - POSITIVE_RESPONSE_OFFSET) in KNOWN_SIDS
-        ) else sid
+        req_sid = (
+            sid - POSITIVE_RESPONSE_OFFSET
+            if (
+                sid >= POSITIVE_RESPONSE_OFFSET
+                and sid != NEGATIVE_RESPONSE_SID
+                and (sid - POSITIVE_RESPONSE_OFFSET) in KNOWN_SIDS
+            )
+            else sid
+        )
 
     for i, b in enumerate(payload):
         if i == 0:
-            if b == NEGATIVE_RESPONSE_SID:
-                color = UDS_COLORS["sid_response"]
-            elif b >= POSITIVE_RESPONSE_OFFSET + 0x10:
+            if b == NEGATIVE_RESPONSE_SID or b >= POSITIVE_RESPONSE_OFFSET + 0x10:
                 color = UDS_COLORS["sid_response"]
             else:
                 color = UDS_COLORS["sid_request"]
             colored_bytes.append({"value": f"{b:02X}", "color": color})
-        elif i == 1 or i == 2:
+        elif i in {1, 2}:
             color = UDS_COLORS["did"] if req_sid in DID_SIDS else UDS_COLORS["payload"]
             colored_bytes.append({"value": f"{b:02X}", "color": color})
         else:
             colored_bytes.append({"value": f"{b:02X}", "color": UDS_COLORS["payload"]})
 
-    for b in frame[1 + payload_len:]:
-        colored_bytes.append({"value": f"{b:02X}", "color": UDS_COLORS["padding"]})
+    colored_bytes.extend(
+        {"value": f"{b:02X}", "color": UDS_COLORS["padding"]}
+        for b in frame[1 + payload_len :]
+    )
 
     protocol = "UDS"
-    service  = ""
+    service = ""
 
     if payload:
         sid_names = {
-            SID_DIAGNOSTIC_SESSION_CONTROL : "DiagnosticSessionControl",
-            SID_ECU_RESET                  : "ECUReset",
-            SID_READ_DATA_BY_IDENTIFIER    : "ReadDataByIdentifier",
-            SID_SECURITY_ACCESS            : "SecurityAccess",
-            NEGATIVE_RESPONSE_SID          : "NegativeResponse",
+            SID_DIAGNOSTIC_SESSION_CONTROL: "DiagnosticSessionControl",
+            SID_ECU_RESET: "ECUReset",
+            SID_READ_DATA_BY_IDENTIFIER: "ReadDataByIdentifier",
+            SID_SECURITY_ACCESS: "SecurityAccess",
+            NEGATIVE_RESPONSE_SID: "NegativeResponse",
         }
         protocol = sid_names.get(req_sid, f"0x{req_sid:02X}")
 
@@ -369,11 +378,11 @@ def build_uds_log_entry(
                 service = f"Sub 0x{sub:02X}"
 
     return {
-        "time"       : timestamp,
-        "addr"       : f"0x{addr:03X}",
-        "sender"     : sender,
-        "frame_type" : frame_type,
-        "protocol"   : protocol,
-        "service"    : service,
-        "bytes"      : colored_bytes
+        "time": timestamp,
+        "addr": f"0x{addr:03X}",
+        "sender": sender,
+        "frame_type": frame_type,
+        "protocol": protocol,
+        "service": service,
+        "bytes": colored_bytes,
     }

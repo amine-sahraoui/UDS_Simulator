@@ -6,40 +6,45 @@
 import os
 import sys
 
+from PyQt5.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt
+from PyQt5.QtGui import QBrush, QColor, QPainter, QPixmap
 from PyQt5.QtWidgets import (
-    QDialog, QHBoxLayout, QVBoxLayout, QLabel,
-    QLineEdit, QPushButton, QFrame, QGraphicsDropShadowEffect
+    QDialog,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
 )
-from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint
-from PyQt5.QtGui  import QBrush, QColor, QPainter, QPixmap
 
-from common.db_handler    import DatabaseHandler
-
+from common.db_handler import DatabaseHandler
 from utils import resource_path
+
 # =============================================================================
 # Light theme — like the image
 # =============================================================================
 COLORS = {
-    "bg"         : "#F6F8FA",   # light grey background
-    "card"       : "#FFFFFF",   # white card
-    "border"     : "#D0D7DE",   # light border
+    "bg": "#F6F8FA",  # light grey background
+    "card": "#FFFFFF",  # white card
+    "border": "#D0D7DE",  # light border
     "border_focus": "#0969DA",  # bleu focus
-    "text_main"  : "#1F2328",   # noir textUDS Simulator
-    "text_sub"   : "#26292D",   # grey subtitle
-    "text_label" : "#3B3E42",   # field labels
-    "accent"     : "#1F883D",   # vert — bouton connect
+    "text_main": "#1F2328",  # noir textUDS Simulator
+    "text_sub": "#26292D",  # grey subtitle
+    "text_label": "#3B3E42",  # field labels
+    "accent": "#1F883D",  # vert — bouton connect
     "accent_hover": "#1A7F37",
     "accent_press": "#156430",
-    "error"      : "#CF222E",   # rouge error
-    "addr_orange": "#D4A017",   # orange bhal addr f image
+    "error": "#CF222E",  # rouge error
+    "addr_orange": "#D4A017",  # orange bhal addr f image
 }
 
 
 class LoginWindow(QDialog):
-
     def __init__(self, db: DatabaseHandler, parent=None):
         super().__init__(parent)
-        self.db          = db
+        self.db = db
         self.logged_role = None
 
         self._setup_window()
@@ -54,10 +59,10 @@ class LoginWindow(QDialog):
         self.setAttribute(Qt.WA_TranslucentBackground, False)
 
         from PyQt5.QtWidgets import QApplication
+
         screen = QApplication.primaryScreen().geometry()
         self.move(
-            (screen.width()  - self.width())  // 2,
-            (screen.height() - self.height()) // 2
+            (screen.width() - self.width()) // 2, (screen.height() - self.height()) // 2,
         )
 
     # -------------------------------------------------------------------------
@@ -109,7 +114,7 @@ class LoginWindow(QDialog):
         card_layout.addStretch()
         main_layout.addWidget(self.card)
 
- # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Top bar
     # -------------------------------------------------------------------------
     def _build_topbar(self) -> QFrame:
@@ -130,20 +135,28 @@ class LoginWindow(QDialog):
             rounded.fill(Qt.transparent)
             painter = QPainter(rounded)
             painter.setRenderHint(QPainter.Antialiasing)
-            painter.setBrush(QBrush(pixmap.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)))
+            painter.setBrush(
+                QBrush(
+                    pixmap.scaled(
+                        size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation,
+                    ),
+                ),
+            )
             painter.setPen(Qt.NoPen)
             painter.drawEllipse(0, 0, size, size)
             painter.end()
             lbl_logo.setPixmap(rounded)
         else:
             lbl_logo.setText("⬡")
-            lbl_logo.setStyleSheet(f"font-size: 30px;")
+            lbl_logo.setStyleSheet("font-size: 30px;")
         layout.addWidget(lbl_logo)
 
         # Title
         lbl_title = QLabel("SIGMA Embedded")
         # set Sigma Embedded bigger and bolder than the header title
-        lbl_title.setStyleSheet(f"font-size: 24px; font-weight: bold; color: {COLORS['text_main']};")
+        lbl_title.setStyleSheet(
+            f"font-size: 24px; font-weight: bold; color: {COLORS['text_main']};",
+        )
         lbl_title.setObjectName("topbar_title")
         layout.addWidget(lbl_title)
 
@@ -153,7 +166,7 @@ class LoginWindow(QDialog):
 
         # layout.setSpacing(20)
 
-        return bar        
+        return bar
 
     def _build_header(self) -> QVBoxLayout:
         layout = QVBoxLayout()
@@ -295,17 +308,17 @@ class LoginWindow(QDialog):
         self.lbl_error.setText(f"{message}")
 
     def _shake(self):
-        pos  = self.card.pos()
+        pos = self.card.pos()
         anim = QPropertyAnimation(self.card, b"pos")
         anim.setDuration(300)
         anim.setEasingCurve(QEasingCurve.InOutSine)
-        anim.setKeyValueAt(0.0,  pos)
+        anim.setKeyValueAt(0.0, pos)
         anim.setKeyValueAt(0.15, pos + QPoint(-10, 0))
-        anim.setKeyValueAt(0.30, pos + QPoint( 10, 0))
-        anim.setKeyValueAt(0.45, pos + QPoint(-8,  0))
-        anim.setKeyValueAt(0.60, pos + QPoint( 8,  0))
-        anim.setKeyValueAt(0.75, pos + QPoint(-4,  0))
-        anim.setKeyValueAt(1.0,  pos)
+        anim.setKeyValueAt(0.30, pos + QPoint(10, 0))
+        anim.setKeyValueAt(0.45, pos + QPoint(-8, 0))
+        anim.setKeyValueAt(0.60, pos + QPoint(8, 0))
+        anim.setKeyValueAt(0.75, pos + QPoint(-4, 0))
+        anim.setKeyValueAt(1.0, pos)
         anim.start()
         self._shake_anim = anim
 
@@ -314,5 +327,5 @@ class LoginWindow(QDialog):
             self._drag_pos = event.globalPos() - self.frameGeometry().topLeft()
 
     def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton and hasattr(self, '_drag_pos'):
+        if event.buttons() == Qt.LeftButton and hasattr(self, "_drag_pos"):
             self.move(event.globalPos() - self._drag_pos)

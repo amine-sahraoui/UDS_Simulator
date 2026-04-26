@@ -17,7 +17,7 @@ from common.db_handler    import DatabaseHandler
 
 from utils import resource_path
 # =============================================================================
-# Light theme — bhal image
+# Light theme — like the image
 # =============================================================================
 COLORS = {
     "bg"         : "#F6F8FA",   # light grey background
@@ -160,7 +160,7 @@ class LoginWindow(QDialog):
         layout.addSpacing(20)
         layout.setSpacing(20)
 
-        # Monospace title bhal image
+        # Monospace title like the image
         lbl_title = QLabel("UDS Simulator")
         lbl_title.setObjectName("lbl_title")
         lbl_title.setAlignment(Qt.AlignLeft)
@@ -169,7 +169,7 @@ class LoginWindow(QDialog):
         lbl_field.setObjectName("lbl_field")
         lbl_field.setAlignment(Qt.AlignLeft)
 
-        # Separator line bhal image header
+        # Header separator line like the image
         line = QFrame()
         line.setObjectName("header_line")
         line.setFrameShape(QFrame.HLine)

@@ -1,5 +1,5 @@
 {
-  "_comment": "UDS DID Database — kol DID 3ndu: name, readable, writable, value, unit, roles",
+  "_comment": "UDS DID Database - each DID includes: name, readable, writable, value, unit, and roles",
 
   "0xF40D": {
     "name": "Vehicle Speed",

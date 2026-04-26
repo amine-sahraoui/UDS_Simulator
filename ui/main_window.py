@@ -190,7 +190,7 @@ class MainWindow(QMainWindow):
         return bar
 
     # -------------------------------------------------------------------------
-    # Command area — bhal image: input + send button
+    # Command area: (Like the image) input + send button
     # -------------------------------------------------------------------------
     def _build_command_area(self) -> QFrame:
         frame = QFrame()
@@ -242,7 +242,7 @@ class MainWindow(QMainWindow):
         return frame
 
     # -------------------------------------------------------------------------
-    # Trace window — bhal image
+    # Trace window — Like the image
     # -------------------------------------------------------------------------
     def _build_trace_window(self) -> QFrame:
         frame = QFrame()
@@ -277,7 +277,7 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(header)
 
-        # Table — 7 colonnes bhal image
+        # Table — 7 columns (like the image)
         self.log_table = QTableWidget()
         self.log_table.setObjectName("log_table")
         self.log_table.setColumnCount(7)
@@ -330,7 +330,7 @@ class MainWindow(QMainWindow):
     # =========================================================================
     def _send_command(self):
         """
-        Parse command dial user w ysift l ECU.
+        Parse user command and send it to ECU.
 
         Formats:
             0x1001          → DSC Default
@@ -362,7 +362,7 @@ class MainWindow(QMainWindow):
         try:
             sid = int(raw[:2], 16)
         except ValueError:
-            # Invalid hex — sift quand meme l ECU bash yban f trace
+            # Invalid hex — still send to ECU so it appears in trace
             self.client.send_raw([0x00])
             return
 
@@ -465,7 +465,7 @@ class MainWindow(QMainWindow):
         except ValueError:
             self.client.send_raw([0x27, sub])
     # =========================================================================
-    # LOG — append entry b 7 colonnes
+    # LOG — append entry with 7 columns
     # =========================================================================
     def _append_log_entry(self, entry: dict):
         row = self.log_table.rowCount()
@@ -483,10 +483,10 @@ class MainWindow(QMainWindow):
         # Col 2 — Service (sub-function)
         self._set_cell(row, 2, entry.get("service", ""), C["btn_active"])
 
-        # Col 3 — CAN ID (HEX) — orange bhal image
+        # Col 3 — CAN ID (HEX) in orange (like in the image)
         self._set_cell(row, 3, entry["addr"], UDS_COLORS["addr"])
 
-        # Col 4 — Data Bytes — b couleurs
+        # Col 4 — Data Bytes with color coding
         bytes_widget = self._make_bytes_widget(payload)
         self.log_table.setCellWidget(row, 4, bytes_widget)
 
@@ -516,7 +516,7 @@ class MainWindow(QMainWindow):
         return label
 
     def _get_service_names(self, sid: int) -> tuple:
-        """Yrd (protocol_service, service_name) mn SID."""
+        """Return (protocol_service, service_name) from SID."""
         # Response SID → request SID
         req_sid = sid - 0x40 if sid >= 0x40 and sid != 0x7F else sid
 
@@ -525,7 +525,7 @@ class MainWindow(QMainWindow):
             0x11: ("UDS", "ECUReset"),
             0x22: ("UDS", "ReadDataByIdentifier"),
             0x7F: ("UDS", "NegativeResponse"),
-            0x27: ("UDS", "SecurityAccsess"),
+            0x27: ("UDS", "SecurityAccess"),
 
         }
         return service_map.get(req_sid, ("UDS", f"0x{sid:02X}"))

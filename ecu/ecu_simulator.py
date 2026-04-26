@@ -2,8 +2,8 @@
 # ecu/ecu_simulator.py
 # UDS Simulator — ECU Side
 # =============================================================================
-# Fichier hada huwa "ECU" f simulator dyalna.
-# Kaysmk 3la UDS requests, kayprocessiw, w kayrd responses.
+# This module implements the ECU side of the simulator.
+# It listens to UDS requests, processes them, and returns responses.
 #
 # Services supported:
 #   0x10 — DiagnosticSessionControl
@@ -62,18 +62,18 @@ class ECUSimulator:
     # -------------------------------------------------------------------------
     def __init__(self, db: DatabaseHandler, role: str):
         """
-        - db   : DatabaseHandler — kaystawdih l DID access w permissions
-        - role : str             — role dial user connected (ROLE_ADMIN, ...)
+        - db   : DatabaseHandler used for DID access and permissions
+        - role : str — connected user role (ROLE_ADMIN, ROLE_TECHNICIAN, ...)
         """
         self.db              = db
         self.role            = role
-        self.current_session = SESSION_DEFAULT   # ECU ybda f Default session
+        self.current_session = SESSION_DEFAULT   # ECU starts in Default Session.
         self._failed_key_attempts = 0
         self._max_key_attempts    = 3
         self._key_off_allowed = False
         self.engine_running = bool(self.db.get_did_value(DID_VEHICLE_SPEED))
-        # Callback — GUI tconnectiw bih bach tchargi log entries
-        # tstawdih hakda: ecu.on_frame_logged = my_gui_function
+        # Callback used by GUI to receive log entries.
+        # Example: ecu.on_frame_logged = my_gui_function
         self.on_frame_logged = None
 
     # =========================================================================
@@ -82,17 +82,17 @@ class ECUSimulator:
 
     def process_request(self, request_frame: list[int]) -> list[int]:
         """
-        Entry point dial ECU — kayakhod request frame w kayrd response frame.
+        ECU entry point: accepts request frame and returns response frame.
 
-        - request_frame : list[int] — 8 bytes (UDS frame complet)
+        - request_frame : list[int] — 8 bytes (UDS frame complete)
         - return        : list[int] — 8 bytes (response frame)
 
         Flow:
             1. Parse frame → payload
             2. Extract SID
-            3. Check wash service msmoh f current session
-            4. Dispatch l handler dyalo
-            5. Rd response frame
+            3. Check whether service is allowed in current session
+            4. Dispatch to its handler
+            5. Return response frame
         """
         # -- Parse
         try:
@@ -105,7 +105,7 @@ class ECUSimulator:
 
         sid = payload[0]
 
-        # -- SID valid check → NRC_GENERAL_REJECT
+        # -- Validate SID → NRC_GENERAL_REJECT if unknown
         VALID_SIDS = [0x10, 0x11, 0x22, 0x27, 0x2E, 0x31, 0x36, 0x3E]
         if sid not in VALID_SIDS:
             response = self._negative_response(sid, NRC_GENERAL_REJECT)
@@ -251,7 +251,7 @@ class ECUSimulator:
             return self._negative_response(SID_ECU_RESET,
                                            NRC_SECURITY_ACCESS_DENIED)
 
-        # Reset — ECU yrj3 l Default session
+        # Reset — ECU returns to Default Session.
         self.current_session = SESSION_DEFAULT
         self.db.set_did_value(DID_ACTIVE_SESSION, SESSION_DEFAULT)
 
@@ -334,7 +334,7 @@ class ECUSimulator:
             )
 
         # -------------------------------
-        # 5. VIN condition (speed = 0)
+        # 5. VIN condition (vehicle speed must be 0)
         # -------------------------------
         if did == 0xF190:
             speed = self.db.get_did_value(0xF40D)
@@ -385,7 +385,7 @@ class ECUSimulator:
             return self._negative_response(SID_SECURITY_ACCESS,
                                         NRC_SUBFUNCTION_NOT_SUPPORTED)
 
-        # -- 0x01 — Seed request
+        # -- 0x01: Seed request
         if sub == 0x01:
             # must be exactly [0x27, 0x01] — no extra bytes
             if len(payload) != 2:
@@ -399,7 +399,7 @@ class ECUSimulator:
             ]
             return build_uds_frame(response_payload)
 
-        # -- 0x02 — Key send
+        # -- 0x02: Key send
         elif sub == 0x02:
             # Check seed requested first
             if not hasattr(self, '_seed') or self._seed is None:
@@ -450,7 +450,7 @@ class ECUSimulator:
 
     def _negative_response(self, sid: int, nrc: int) -> list[int]:
         """
-        Bni Negative Response frame.
+        Build Negative Response frame.
         Format: [0x7F, SID, NRC, padding...]
 
         Ex: [0x7F, 0x22, 0x31, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA]
@@ -460,8 +460,8 @@ class ECUSimulator:
 
     def _log(self, addr: int, frame: list[int], sender: str):
         """
-        Ysift log entry l GUI via callback.
-        Ila GUI mashi connectée — ma kaydirch walo.
+        Send log entry to GUI via callback.
+        No-op if callback is not connected.
         """
         if self.on_frame_logged:
             entry = build_uds_log_entry(addr, frame, sender)
@@ -472,19 +472,19 @@ class ECUSimulator:
     # =========================================================================
 
     def get_current_session(self) -> int:
-        """Yrd current session (SESSION_DEFAULT, SESSION_EXTENDED, SESSION_PROGRAMMING)."""
+        """Return current session (SESSION_DEFAULT, SESSION_EXTENDED, SESSION_PROGRAMMING)."""
         return self.current_session
 
     def get_session_name(self) -> str:
-        """Yrd current session name — pour affichage f GUI."""
+        """Return current session name for GUI display."""
         return SESSION_NAMES.get(self.current_session, "Unknown Session")
 
     def is_engine_running(self) -> bool:
-        """Yrd wach engine khdama awla stopped."""
+        """Return whether engine is running or stopped."""
         return self.engine_running
 
     def is_security_unlocked(self) -> bool:
-        """Yrd wach security access unlocked awla locked."""
+        """Return whether security access is unlocked or locked."""
         return getattr(self, '_security_unlocked', False)
 
     def start_engine(self) -> bool:
@@ -514,5 +514,5 @@ class ECUSimulator:
         return self.engine_running
 
     def set_role(self, role: str):
-        """Ybddel role — waqtash user ybddel account."""
+        """Update role when user switches account."""
         self.role = role

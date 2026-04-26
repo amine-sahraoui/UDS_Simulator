@@ -21,7 +21,7 @@ We welcome contributions from everyone! Whether it's improving our documentation
 ## Stay Connected
 Don't miss out on any updates! Follow us on our social media channels:
 - **[LinkedIn/Page](https://www.linkedin.com/company/sigma-embedded)**
-- **[LinkedIn/Groupe](https://www.linkedin.com/groups/12842283/)**
+- **[LinkedIn/Group](https://www.linkedin.com/groups/12842283/)**
 - **[Youtube](https://www.youtube.com/@SigmaEmbedded-md4dm)**
 - **[Discord](https://discord.gg/RBSbh2MENz)**
 

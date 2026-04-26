@@ -2,8 +2,8 @@
 # client/uds_client.py
 # UDS Simulator — Client Side (Tester)
 # =============================================================================
-# Fichier hada huwa "tester" f simulator dyalna.
-# Kaybni UDS requests w kaysiftime l ECU — direct call (mashi CAN HW).
+# This module implements the diagnostic tester side of the simulator.
+# It builds UDS requests and sends them to the ECU via direct calls (no CAN hardware).
 #
 # Services supported:
 #   0x10 — DiagnosticSessionControl
@@ -43,11 +43,11 @@ class UDSClient:
     # -------------------------------------------------------------------------
     def __init__(self, ecu):
         """
-        - ecu : ECUSimulator — direct reference, kaysiftime requests bla CAN HW
+        ecu: ECUSimulator direct reference used to send requests without CAN hardware.
         """
         self.ecu = ecu
 
-        # Callback — GUI tconnectiw bih bach tchargi log entries
+        # Callback used by the GUI to receive log entries.
         self.on_frame_logged = None
 
     # =========================================================================
@@ -56,16 +56,16 @@ class UDSClient:
 
     def _send(self, payload: list[int]) -> dict:
         """
-        Kaybni UDS frame mn payload, kaysiftime l ECU, kayrd parsed response.
+        Build a UDS frame from payload, send it to ECU, and return parsed response.
 
-        - payload : list[int] — UDS bytes bla PCI (ex: [0x10, 0x03])
-        - return  : dict b response info:
+        - payload : list[int] — UDS bytes without PCI (e.g. [0x10, 0x03])
+        - return  : dict with response info:
             {
                 "success"  : bool,
                 "sid"      : int,       # response SID
-                "payload"  : list[int], # response payload complet
-                "nrc"      : int|None,  # NRC code ila negative response
-                "nrc_name" : str|None,  # NRC name lisible
+                "payload"  : list[int], # response payload complete
+                "nrc"      : int|None,  # NRC code for negative response
+                "nrc_name" : str|None,  # Human-readable NRC name
             }
 
         Flow:
@@ -73,15 +73,15 @@ class UDSClient:
             2. Log request frame
             3. ecu.process_request(frame) → response frame
             4. parse_uds_frame(response) → response payload
-            5. Rd dict b result
+            5. Return result dictionary
         """
-        # 1. Bni request frame
+        # 1. Build request frame
         request_frame = build_uds_frame(payload)
 
         # 2. Log request
         self._log(CLIENT_ADDR, request_frame, "Client(DiagBox)")
 
-        # 3. Sift l ECU — direct call
+        # 3. Send to ECU by direct call
         response_frame = self.ecu.process_request(request_frame)
 
         # 4. Parse response
@@ -137,15 +137,15 @@ class UDSClient:
     # -------------------------------------------------------------------------
     def change_session(self, session: int) -> dict:
         """
-        Ybddel UDS session.
+        Change UDS session.
 
         - session : int — SESSION_DEFAULT / SESSION_EXTENDED / SESSION_PROGRAMMING
-        - return  : dict b result (success, session_name, nrc...)
+        - return  : dict result (success, session_name, nrc...)
 
         Request payload  : [0x10, session]
         Response payload : [0x50, session, P2_H, P2_L, P2Ex_H, P2Ex_L]
 
-        Exemple:
+        Example:
             result = client.change_session(SESSION_EXTENDED)
             # result["success"] → True
             # result["session_name"] → "Extended Session (0x03)"
@@ -163,15 +163,15 @@ class UDSClient:
     # -------------------------------------------------------------------------
     def reset_ecu(self, reset_type: int = RESET_HARD) -> dict:
         """
-        Yreset ECU.
+        Reset ECU.
 
         - reset_type : int — RESET_HARD / RESET_KEY_OFF / RESET_SOFT
-        - return     : dict b result
+        - return     : dict result
 
         Request payload  : [0x11, reset_type]
         Response payload : [0x51, reset_type]
 
-        Exemple:
+        Example:
             result = client.reset_ecu(RESET_SOFT)
             # result["success"] → True
             # result["reset_name"] → "Soft Reset (0x03)"
@@ -189,15 +189,15 @@ class UDSClient:
     # -------------------------------------------------------------------------
     def read_did(self, did: int) -> dict:
         """
-        Yqra valeur dial DID wahd.
+        Read a single DID value.
 
-        - did    : int — ex: 0xF40D
-        - return : dict b result + value
+        - did    : int — e.g. 0xF40D
+        - return : dict result + decoded value
 
         Request payload  : [0x22, DID_H, DID_L]
         Response payload : [0x62, DID_H, DID_L, <value bytes>]
 
-        Exemple:
+        Example:
             result = client.read_did(0xF40D)
             # result["success"]    → True
             # result["did"]        → 0xF40D
@@ -225,7 +225,7 @@ class UDSClient:
             try:
                 result["value"] = self._decode_did_value(raw_bytes, did_info.get("type", "uint8"))
             except Exception:
-                result["value"] = raw_bytes   # rd raw ila decode fshel
+                result["value"] = raw_bytes  # Keep raw bytes if decoding fails.
 
         return result
 
@@ -235,8 +235,7 @@ class UDSClient:
 
     def _decode_did_value(self, raw_bytes: list[int], value_type: str):
         """
-        Decode raw bytes → Python value selon type.
-        Proxy l decode_value() dial utils.
+        Decode raw bytes to Python value by type (proxy to utils.decode_value).
         """
         from utils import decode_value
         return decode_value(raw_bytes, value_type)
@@ -254,8 +253,7 @@ class UDSClient:
     
     def _log(self, addr: int, frame: list[int], sender: str):
         """
-        Ysift log entry l GUI via callback.
-        Ila GUI mashi connectée — ma kaydirch walo.
+        Send a log entry to GUI via callback. No-op if callback is not connected.
         """
         if self.on_frame_logged:
             entry = build_uds_log_entry(addr, frame, sender)

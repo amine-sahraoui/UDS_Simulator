@@ -2,8 +2,8 @@
 # utils.py
 # UDS Simulator — Utility / Helper Functions
 # =============================================================================
-# Fichier hada fih fonctions "transversales" — mashi UDS logic,
-# walakin kaystakhdamhom ECU + Client + GUI kolhom.
+# This file contains shared helper functions.
+# It does not implement UDS business logic directly, but is used by ECU, client, and GUI.
 # =============================================================================
 
 import os
@@ -21,36 +21,36 @@ def resource_path(relative_path):
 # -----------------------------------------------------------------------------
 # 1. resource_path — PyInstaller compatibility
 # -----------------------------------------------------------------------------
-# Waqtash tpackagi application b PyInstaller (→ .exe / binary),
-# les fichiers (JSON, images...) kaytkono f dossier temporaire "_MEIPASS".
-# resource_path() kayrd path sahi swa kant f dev mode wla packagé.
+# When the application is packaged with PyInstaller (binary/.exe),
+# bundled files (JSON, images, etc.) are available in the temporary "_MEIPASS" folder.
+# resource_path() returns the correct path in both development and packaged modes.
 # -----------------------------------------------------------------------------
 
 def resource_path(relative_path: str) -> str:
     """
-    Rd absolute path — compatible avec PyInstaller w dev mode.
+    Return an absolute path compatible with both PyInstaller and development mode.
 
-    Dev mode    : rd path relatif l dossier dial script
-    Packagé     : rd path relatif l _MEIPASS (dossier temp dial PyInstaller)
+    Development mode: resolve relative to this script directory.
+    Packaged mode: resolve relative to PyInstaller's temporary _MEIPASS folder.
     """
     if hasattr(sys, '_MEIPASS'):
-        # Packagé — fichiers f dossier temp
+        # Packaged mode: files are extracted in a temporary folder.
         base_path = sys._MEIPASS
     else:
-        # Dev mode — fichiers jnb script
+        # Development mode: files live next to the project code.
         base_path = os.path.abspath(os.path.dirname(__file__))
 
     return os.path.join(base_path, relative_path)
 
 
 # -----------------------------------------------------------------------------
-# 2. build_uds_frame — Construit UDS frame complet (8 bytes)
+# 2. build_uds_frame — Build full UDS frame (8 bytes)
 # -----------------------------------------------------------------------------
-# F UDS layer, kol message = exactement 8 bytes.
-# UDS payload kaydkhl men b3d PCI byte.
-# Les bytes li fadlin kaytmlaw b UDS_PADDING_BYTE (0xAA).
+# At this layer, each message is exactly 8 bytes.
+# The UDS payload starts after the PCI byte.
+# Remaining bytes are padded with UDS_PADDING_BYTE (0xAA).
 #
-# Exemple:
+# Example:
 #   payload = [0x10, 0x03]   (DSC Extended Session)
 #   → PCI byte = 0x02        (Single Frame, length=2)
 #   → frame    = [02, 10, 03, AA, AA, AA, AA, AA]
@@ -129,46 +129,46 @@ def parse_uds_frame(frame: list[int]) -> list[int]:
     return payload
 
 # -----------------------------------------------------------------------------
-# 5. did_str_to_int — Convertit DID string → int
+# 5. did_str_to_int — Convert DID string → int
 # -----------------------------------------------------------------------------
-# JSON keys kaykuno strings ("0xF40D") — lazm nconvertihom l int
-# bach nqadro nqaranohom m3 bytes li jiw mn UDS frame.
+# JSON keys are strings ("0xF40D").
+# Convert them to integers so they can be compared with bytes from UDS frames.
 # -----------------------------------------------------------------------------
 
 def did_str_to_int(did_str: str) -> int:
     """
-    Convertit DID string → int.
+    Convert DID string → int.
     "0xF40D" → 0xF40D (= 62477)
-    "F40D"   → 0xF40D  (b wla bla 0x prefix)
+    "F40D"   → 0xF40D  (with or without 0x prefix)
     """
     return int(did_str, 16)
 
 
 def did_int_to_str(did_int: int) -> str:
     """
-    Convertit DID int → string formatée.
+    Convert DID int → formatted string.
     0xF40D → "0xF40D"
     """
     return f"0x{did_int:04X}"
 
 
 # -----------------------------------------------------------------------------
-# 6. encode_value / decode_value — Convertit valeur ↔ bytes
+# 6. encode_value / decode_value — Convert value ↔ bytes
 # -----------------------------------------------------------------------------
-# Kol DID 3ndu "type" f JSON (uint8, uint16, uint32, string).
-# encode_value : Python value → bytes list (l envoi f UDS frame)
-# decode_value : bytes list → Python value (men b3d réception)
+# Each DID has a type in JSON (uint8, uint16, uint32, string).
+# encode_value: Python value → list of bytes (for UDS transmission)
+# decode_value: list of bytes → Python value (after reception)
 # -----------------------------------------------------------------------------
 
 def encode_value(value, value_type: str) -> list[int]:
     """
-    Convertit valeur Python → liste d bytes pour UDS frame.
+    Convert Python value → list of bytes for a UDS frame.
 
-    Types supportés:
-    - uint8   : 1 byte  — ex: 50  → [0x32]
-    - uint16  : 2 bytes — ex: 3000 → [0x0B, 0xB8]  (big-endian)
-    - uint32  : 4 bytes — ex: 123456 → [0x00, 0x01, 0xE2, 0x40]
-    - string  : ASCII bytes — ex: "ABC" → [0x41, 0x42, 0x43]
+    Supported types:
+    - uint8   : 1 byte  (e.g. 50  → [0x32])
+    - uint16  : 2 bytes (e.g. 3000 → [0x0B, 0xB8], big-endian)
+    - uint32  : 4 bytes (e.g. 123456 → [0x00, 0x01, 0xE2, 0x40])
+    - string  : ASCII bytes (e.g. "ABC" → [0x41, 0x42, 0x43])
     """
     if value_type == "uint8":
         return [int(value) & 0xFF]
@@ -190,14 +190,14 @@ def encode_value(value, value_type: str) -> list[int]:
         return list(str(value).encode("ascii"))
 
     else:
-        raise ValueError(f"Type mashi ma3rof: {value_type}")
+        raise ValueError(f"Unknown value type: {value_type}")
 
 
 def decode_value(raw_bytes: list[int], value_type: str):
     """
-    Convertit liste d bytes → valeur Python.
+    Convert list of bytes → Python value.
 
-    Inverse d encode_value.
+    Inverse of encode_value.
     """
     if value_type == "uint8":
         return raw_bytes[0]
@@ -217,15 +217,15 @@ def decode_value(raw_bytes: list[int], value_type: str):
         return bytes(raw_bytes).decode("ascii", errors="replace")
 
     else:
-        raise ValueError(f"Type mashi ma3rof: {value_type}")
+        raise ValueError(f"Unknown value type: {value_type}")
 
 
 # -----------------------------------------------------------------------------
-# 7. load_json / save_json — Helper l fichiers JSON
+# 7. load_json / save_json — JSON file helpers
 # -----------------------------------------------------------------------------
 
 def load_json(path: str) -> dict:
-    """Chargi JSON fichier w rd dict. Rd {} ila fichier mawjodch."""
+    """Load a JSON file and return a dictionary. Return {} if file is missing."""
     full_path = resource_path(path)
     if os.path.exists(full_path):
         with open(full_path, 'r', encoding='utf-8') as f:
@@ -234,28 +234,28 @@ def load_json(path: str) -> dict:
 
 
 def save_json(path: str, data: dict) -> None:
-    """Sauvegarde dict → JSON fichier (indent=2 pour lisibilité)."""
+    """Save dictionary to a JSON file (indent=2 for readability)."""
     full_path = resource_path(path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     with open(full_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 # -----------------------------------------------------------------------------
-# 4. build_uds_log_entry — Format UDS frame → structured dict pour GUI log
+# 4. build_uds_log_entry — Format UDS frame -> structured dict for GUI log
 # -----------------------------------------------------------------------------
-# Kayrd dict b kol info dial frame — GUI takhdo w tban b couleurs bhal image.
+# Returns a dictionary with full frame details for GUI rendering.
 #
-# Colors (bhal image):
-#   PCI field       → #FF4444  (rouge)
-#   SID request     → #4488FF  (bleu)
+# Colors:
+#   PCI field       → #FF4444  (red)
+#   SID request     → #4488FF  (blue)
 #   UDS DID         → #44CCCC  (cyan)
-#   SID response    → #44AAFF  (bleu clair)
-#   Payload/value   → #44FF88  (vert)
-#   Padding/unused  → #888888  (gris)
+#   SID response    → #44AAFF  (light blue)
+#   Payload/value   → #44FF88  (green)
+#   Padding/unused  → #888888  (gray)
 #   Addr            → #FF8800  (orange)
 # -----------------------------------------------------------------------------
 
-# Couleurs — importables par GUI directement
+# Colors imported directly by the GUI.
 UDS_COLORS = {
     "pci"          : "#FF4444",
     "sid_request"  : "#4488FF",
@@ -273,12 +273,12 @@ def build_uds_log_entry(
     frame_type : str = "Single Frame (SF)"
 ) -> dict:
     """
-    Kayrd structured dict dial frame — GUI takhdo w tban b couleurs.
+    Return a structured frame dictionary for GUI visualization.
 
-    - addr       : int   — ex: 0x7E0
-    - frame      : list  — 8 bytes complets (PCI + payload + padding)
-    - sender     : str   — "Client" wla "ECU"
-    - frame_type : str   — "Single Frame (SF)" par défaut
+    - addr       : int   (e.g. 0x7E0)
+    - frame      : list  (8 bytes total: PCI + payload + padding)
+    - sender     : str   ("Client" or "ECU")
+    - frame_type : str   (default: "Single Frame (SF)")
     """
     from common.uds_constants import (
         UDS_FRAME_SIZE, UDS_PADDING_BYTE,

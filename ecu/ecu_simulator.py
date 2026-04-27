@@ -199,21 +199,23 @@ class ECUSimulator:
         # ===============================
         # 4. CONDITIONS (Programming only)
         # ===============================
-        if sub_function == SESSION_PROGRAMMING:
-            if self.is_engine_running():
-                return self._negative_response(
-                    SID_DIAGNOSTIC_SESSION_CONTROL,
-                    NRC_CONDITIONS_NOT_CORRECT,
-                )
+        if sub_function == SESSION_PROGRAMMING and self.is_engine_running():
+            return self._negative_response(
+                SID_DIAGNOSTIC_SESSION_CONTROL,
+                NRC_CONDITIONS_NOT_CORRECT,
+            )
         # ===============================
         # 5. Security check
         # ===============================
-        if sub_function == SESSION_EXTENDED:
-            if not getattr(self, "_security_unlocked", False):
-                return self._negative_response(
-                    SID_DIAGNOSTIC_SESSION_CONTROL,
-                    NRC_SECURITY_ACCESS_DENIED,
-                )
+        if sub_function == SESSION_EXTENDED and not getattr(
+            self,
+            "_security_unlocked",
+            False,
+        ):
+            return self._negative_response(
+                SID_DIAGNOSTIC_SESSION_CONTROL,
+                NRC_SECURITY_ACCESS_DENIED,
+            )
 
         # ===============================
         # 6. Role check
@@ -260,12 +262,15 @@ class ECUSimulator:
         # Reset type valid?
         if reset_type not in [RESET_SOFT, RESET_HARD]:
             return self._negative_response(SID_ECU_RESET, NRC_SUBFUNCTION_NOT_SUPPORTED)
-        if reset_type in [RESET_KEY_OFF, RESET_HARD]:
-            if not getattr(self, "_security_unlocked", False):
-                return self._negative_response(
-                    SID_ECU_RESET,
-                    NRC_SECURITY_ACCESS_DENIED,
-                )
+        if reset_type in [RESET_KEY_OFF, RESET_HARD] and not getattr(
+            self,
+            "_security_unlocked",
+            False,
+        ):
+            return self._negative_response(
+                SID_ECU_RESET,
+                NRC_SECURITY_ACCESS_DENIED,
+            )
         # Role check
         ok, reason = self.db.can_reset_ecu(self.role)
         if not ok:
@@ -321,12 +326,11 @@ class ECUSimulator:
         # -------------------------------
         # 2. Security check ONLY for VIN (0xF190)
         # -------------------------------
-        if did == 0xF18C:
-            if not getattr(self, "_security_unlocked", False):
-                return self._negative_response(
-                    SID_READ_DATA_BY_IDENTIFIER,
-                    NRC_SECURITY_ACCESS_DENIED,
-                )
+        if did == 0xF18C and not getattr(self, "_security_unlocked", False):
+            return self._negative_response(
+                SID_READ_DATA_BY_IDENTIFIER,
+                NRC_SECURITY_ACCESS_DENIED,
+            )
 
         # -------------------------------
         # 3. DID exists?

@@ -7,6 +7,7 @@
 # imported by other modules.
 # =============================================================================
 
+from common.type_defs import RolePermissions, SessionConfig
 
 # -----------------------------------------------------------------------------
 # 1. UDS data
@@ -149,7 +150,7 @@ ROLE_READER = "reader"  # Read-only DID access
 # Matrix that defines allowed services per session.
 # -----------------------------------------------------------------------------
 
-SESSION_SERVICE_MATRIX = {
+SESSION_SERVICE_MATRIX: dict[int, SessionConfig] = {
     SESSION_DEFAULT: {
         "allowed_services": [
             SID_DIAGNOSTIC_SESSION_CONTROL,
@@ -187,7 +188,7 @@ SESSION_SERVICE_MATRIX = {
 # Admin has full access, technician can write, reader is read-only.
 # -----------------------------------------------------------------------------
 
-ROLE_PERMISSIONS = {
+ROLE_PERMISSIONS_MAP: dict[str, RolePermissions] = {
     ROLE_ADMIN: {
         "can_read": True,
         "can_reset": True,

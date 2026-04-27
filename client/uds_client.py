@@ -12,6 +12,10 @@
 #   0x2E — WriteDataByIdentifier
 # =============================================================================
 
+
+from typing import TYPE_CHECKING
+
+from common.type_defs import UDSClientResult, UDSLogEntry
 from common.uds_constants import (
     # Addresses
     CLIENT_ADDR,
@@ -31,29 +35,36 @@ from common.uds_constants import (
     SID_ECU_RESET,
     SID_READ_DATA_BY_IDENTIFIER,
 )
+from ecu.ecu_simulator import ECUSimulator
 from utils import (
     build_uds_frame,
     build_uds_log_entry,
+    decode_value,
     parse_uds_frame,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 class UDSClient:
+    """UDS Client that builds requests and sends them to ECU by direct method calls."""
+
     # -------------------------------------------------------------------------
     # Constructor
     # -------------------------------------------------------------------------
-    def __init__(self, ecu):
+    def __init__(self, ecu: ECUSimulator) -> None:
         """ecu: ECUSimulator direct reference used to send requests without CAN hardware."""
         self.ecu = ecu
 
         # Callback used by the GUI to receive log entries.
-        self.on_frame_logged = None
+        self.on_frame_logged: Callable[[UDSLogEntry], None] | None = None
 
     # =========================================================================
     # PRIVATE — _send
     # =========================================================================
 
-    def _send(self, payload: list[int]) -> dict:
+    def _send(self, payload: list[int]) -> UDSClientResult:
         """Build a UDS frame from payload, send it to ECU, and return parsed response.
 
         - payload : list[int] — UDS bytes without PCI (e.g. [0x10, 0x03])
@@ -133,7 +144,7 @@ class UDSClient:
     # -------------------------------------------------------------------------
     # 0x10 — DiagnosticSessionControl
     # -------------------------------------------------------------------------
-    def change_session(self, session: int) -> dict:
+    def change_session(self, session: int) -> UDSClientResult:
         """Change UDS session.
 
         - session : int — SESSION_DEFAULT / SESSION_EXTENDED / SESSION_PROGRAMMING
@@ -153,7 +164,8 @@ class UDSClient:
 
         if result["success"]:
             result["session_name"] = SESSION_NAMES.get(
-                session, f"Unknown 0x{session:02X}",
+                session,
+                f"Unknown 0x{session:02X}",
             )
 
         return result
@@ -161,7 +173,7 @@ class UDSClient:
     # -------------------------------------------------------------------------
     # 0x11 — ECUReset
     # -------------------------------------------------------------------------
-    def reset_ecu(self, reset_type: int = RESET_HARD) -> dict:
+    def reset_ecu(self, reset_type: int = RESET_HARD) -> UDSClientResult:
         """Reset ECU.
 
         - reset_type : int — RESET_HARD / RESET_KEY_OFF / RESET_SOFT
@@ -181,7 +193,8 @@ class UDSClient:
 
         if result["success"]:
             result["reset_name"] = RESET_NAMES.get(
-                reset_type, f"Unknown 0x{reset_type:02X}",
+                reset_type,
+                f"Unknown 0x{reset_type:02X}",
             )
 
         return result
@@ -189,7 +202,7 @@ class UDSClient:
     # -------------------------------------------------------------------------
     # 0x22 — ReadDataByIdentifier
     # -------------------------------------------------------------------------
-    def read_did(self, did: int) -> dict:
+    def read_did(self, did: int) -> UDSClientResult:
         """Read a single DID value.
 
         - did    : int — e.g. 0xF40D
@@ -226,7 +239,8 @@ class UDSClient:
             # Decode value
             try:
                 result["value"] = self._decode_did_value(
-                    raw_bytes, did_info.get("type", "uint8"),
+                    raw_bytes,
+                    did_info.get("type", "uint8"),
                 )
             except Exception:
                 result["value"] = raw_bytes  # Keep raw bytes if decoding fails.
@@ -237,15 +251,12 @@ class UDSClient:
     # HELPERS
     # =========================================================================
 
-    def _decode_did_value(self, raw_bytes: list[int], value_type: str):
+    def _decode_did_value(self, raw_bytes: list[int], value_type: str) -> int | str:
         """Decode raw bytes to Python value by type (proxy to utils.decode_value)."""
-        from utils import decode_value
-
         return decode_value(raw_bytes, value_type)
 
-    def send_raw(self, payload: list[int]) -> dict:
-        from utils import build_uds_frame, build_uds_log_entry
-
+    def send_raw(self, payload: list[int]) -> UDSClientResult:
+        """Send a raw UDS request with custom payload. Mainly for testing and fuzzing."""
         frame = build_uds_frame(payload)
 
         if self.on_frame_logged:
@@ -253,9 +264,15 @@ class UDSClient:
             self.on_frame_logged(entry)
 
         response_frame = self.ecu.process_request(frame)
-        return {"success": False, "payload": response_frame}
+        return {
+            "success": False,
+            "sid": 0x00,
+            "payload": response_frame,
+            "nrc": None,
+            "nrc_name": None,
+        }
 
-    def _log(self, addr: int, frame: list[int], sender: str):
+    def _log(self, addr: int, frame: list[int], sender: str) -> None:
         """Send a log entry to GUI via callback. No-op if callback is not connected."""
         if self.on_frame_logged:
             entry = build_uds_log_entry(addr, frame, sender)

@@ -7,8 +7,9 @@ import os
 import sys
 
 from PyQt5.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt
-from PyQt5.QtGui import QBrush, QColor, QPainter, QPixmap
+from PyQt5.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPixmap
 from PyQt5.QtWidgets import (
+    QApplication,
     QDialog,
     QFrame,
     QGraphicsDropShadowEffect,
@@ -17,6 +18,7 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from common.db_handler import DatabaseHandler
@@ -42,7 +44,7 @@ COLORS = {
 
 
 class LoginWindow(QDialog):
-    def __init__(self, db: DatabaseHandler, parent=None):
+    def __init__(self, db: DatabaseHandler, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.db = db
         self.logged_role = None
@@ -52,21 +54,20 @@ class LoginWindow(QDialog):
         self._apply_styles()
 
     # -------------------------------------------------------------------------
-    def _setup_window(self):
+    def _setup_window(self) -> None:
         self.setWindowTitle("UDS Simulator — Login")
         self.setFixedSize(600, 600)
         self.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint)
         self.setAttribute(Qt.WA_TranslucentBackground, False)
 
-        from PyQt5.QtWidgets import QApplication
-
         screen = QApplication.primaryScreen().geometry()
         self.move(
-            (screen.width() - self.width()) // 2, (screen.height() - self.height()) // 2,
+            (screen.width() - self.width()) // 2,
+            (screen.height() - self.height()) // 2,
         )
 
     # -------------------------------------------------------------------------
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -138,7 +139,10 @@ class LoginWindow(QDialog):
             painter.setBrush(
                 QBrush(
                     pixmap.scaled(
-                        size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation,
+                        size,
+                        size,
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation,
                     ),
                 ),
             )
@@ -221,7 +225,7 @@ class LoginWindow(QDialog):
         return layout
 
     # -------------------------------------------------------------------------
-    def _apply_styles(self):
+    def _apply_styles(self) -> None:
         self.setStyleSheet(f"""
             QFrame#card {{
                 background-color: {COLORS["card"]};
@@ -286,7 +290,7 @@ class LoginWindow(QDialog):
         """)
 
     # -------------------------------------------------------------------------
-    def _on_login(self):
+    def _on_login(self) -> None:
         username = self.input_username.text().strip()
         password = self.input_password.text()
 
@@ -304,10 +308,10 @@ class LoginWindow(QDialog):
         self.logged_role = role
         self.accept()
 
-    def _show_error(self, message: str):
+    def _show_error(self, message: str) -> None:
         self.lbl_error.setText(f"{message}")
 
-    def _shake(self):
+    def _shake(self) -> None:
         pos = self.card.pos()
         anim = QPropertyAnimation(self.card, b"pos")
         anim.setDuration(300)
@@ -322,10 +326,10 @@ class LoginWindow(QDialog):
         anim.start()
         self._shake_anim = anim
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.LeftButton:
             self._drag_pos = event.globalPos() - self.frameGeometry().topLeft()
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if event.buttons() == Qt.LeftButton and hasattr(self, "_drag_pos"):
             self.move(event.globalPos() - self._drag_pos)

@@ -2,11 +2,11 @@
 # ui/main_window.py
 # UDS Simulator — Main Window
 # =============================================================================
-
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QBitmap, QBrush, QColor, QFont, QPainter, QPixmap
 from PyQt5.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -22,6 +22,8 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from client.uds_client import UDSClient
+from common.type_defs import UDSLogByte, UDSLogEntry
 from common.uds_constants import (
     ROLE_ADMIN,
     ROLE_READER,
@@ -29,11 +31,13 @@ from common.uds_constants import (
     SESSION_DEFAULT,
     SESSION_EXTENDED,
     SESSION_PROGRAMMING,
+    SESSION_SERVICE_MATRIX,
     SID_DIAGNOSTIC_SESSION_CONTROL,
     SID_ECU_RESET,
     SID_READ_DATA_BY_IDENTIFIER,
     SID_SECURITY_ACCESS,
 )
+from ecu.ecu_simulator import ECUSimulator
 from utils import UDS_COLORS, build_uds_log_entry, resource_path
 
 # =============================================================================
@@ -68,7 +72,13 @@ ROLE_COLORS = {
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, client, ecu, role: str, parent=None):
+    def __init__(
+        self,
+        client: UDSClient,
+        ecu: ECUSimulator,
+        role: str,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.client = client
         self.ecu = ecu
@@ -83,10 +93,9 @@ class MainWindow(QMainWindow):
         self._update_session_indicator()
 
     # -------------------------------------------------------------------------
-    def _setup_window(self):
+    def _setup_window(self) -> None:
         self.setWindowTitle("UDS Simulator")
         self.setMinimumSize(1000, 680)
-        from PyQt5.QtWidgets import QApplication
 
         screen = QApplication.primaryScreen().geometry()
         self.setGeometry(
@@ -99,7 +108,7 @@ class MainWindow(QMainWindow):
     # =========================================================================
     # BUILD UI
     # =========================================================================
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         central = QWidget()
         central.setObjectName("central")
         self.setCentralWidget(central)
@@ -352,7 +361,7 @@ class MainWindow(QMainWindow):
     # =========================================================================
     # COMMAND PARSER
     # =========================================================================
-    def _send_command(self):
+    def _send_command(self) -> None:
         """Parse user command and send it to ECU.
 
         Formats:
@@ -404,7 +413,7 @@ class MainWindow(QMainWindow):
             self.client.send_raw([sid])
 
     # ·········································································
-    def _parse_dsc(self, raw: str):
+    def _parse_dsc(self, raw: str) -> None:
         # raw = "1003" → sub = 0x03
         if len(raw) != 4:
             self.client.send_raw([0x10])
@@ -422,7 +431,7 @@ class MainWindow(QMainWindow):
         if result["success"]:
             self._update_session_indicator()
 
-    def _parse_reset(self, raw: str):
+    def _parse_reset(self, raw: str) -> None:
         if len(raw) != 4:
             self.client.send_raw([0x11])
             return
@@ -437,7 +446,7 @@ class MainWindow(QMainWindow):
             self._update_session_indicator()
             self._update_security_indicator()
 
-    def _parse_read(self, raw: str):
+    def _parse_read(self, raw: str) -> None:
         did_part = raw[2:]  # remove SID byte (22)
 
         if len(did_part) < 4:
@@ -459,7 +468,7 @@ class MainWindow(QMainWindow):
         except ValueError:
             self.client.send_raw([0x22])
 
-    def _parse_security(self, raw: str):
+    def _parse_security(self, raw: str) -> None:
         # if len(raw) % 2 != 0  :
         #     self.client.send_raw([0x27])
         #     return
@@ -490,7 +499,7 @@ class MainWindow(QMainWindow):
     # =========================================================================
     # LOG — append entry with 7 columns
     # =========================================================================
-    def _append_log_entry(self, entry: dict):
+    def _append_log_entry(self, entry: UDSLogEntry) -> None:
         row = self.log_table.rowCount()
         self.log_table.insertRow(row)
         self.log_table.setRowHeight(row, 20)
@@ -520,13 +529,13 @@ class MainWindow(QMainWindow):
 
         self.log_table.scrollToBottom()
 
-    def _set_cell(self, row: int, col: int, text: str, color: str):
+    def _set_cell(self, row: int, col: int, text: str, color: str) -> None:
         item = QTableWidgetItem(text)
         item.setForeground(QBrush(QColor(color)))
         item.setFont(QFont("JetBrains Mono", 8))
         self.log_table.setItem(row, col, item)
 
-    def _make_bytes_widget(self, bytes_list: list) -> QLabel:
+    def _make_bytes_widget(self, bytes_list: list[UDSLogByte]) -> QLabel:
         parts = [
             f"<span style='color:{b['color']};font-family:JetBrains Mono;font-size:18px;'>{b['value']}</span>"
             for b in bytes_list
@@ -537,7 +546,7 @@ class MainWindow(QMainWindow):
         label.setStyleSheet("background: transparent;")
         return label
 
-    def _get_service_names(self, sid: int) -> tuple:
+    def _get_service_names(self, sid: int) -> tuple[str, str]:
         """Return (protocol_service, service_name) from SID."""
         # Response SID → request SID
         req_sid = sid - 0x40 if sid >= 0x40 and sid != 0x7F else sid
@@ -551,14 +560,13 @@ class MainWindow(QMainWindow):
         }
         return service_map.get(req_sid, ("UDS", f"0x{sid:02X}"))
 
-    def _clear_log(self):
+    def _clear_log(self) -> None:
         self.log_table.setRowCount(0)
 
     # =========================================================================
     # HELPERS
     # =========================================================================
-    def _update_session_indicator(self):
-        from common.uds_constants import SESSION_SERVICE_MATRIX
+    def _update_session_indicator(self) -> None:
 
         session = self.ecu.get_current_session()
         name = self.ecu.get_session_name()
@@ -569,7 +577,7 @@ class MainWindow(QMainWindow):
         )
         self._update_engine_indicator()
 
-    def _update_engine_indicator(self):
+    def _update_engine_indicator(self) -> None:
         if self.ecu.is_engine_running():
             text = "Engine Running"
             color = C["accent"]
@@ -589,7 +597,7 @@ class MainWindow(QMainWindow):
 
         self._update_security_indicator()
 
-    def _update_security_indicator(self):
+    def _update_security_indicator(self) -> None:
         if self.ecu.is_security_unlocked():
             text = "🔓 Unlocked"
             color = C["accent"]
@@ -602,10 +610,10 @@ class MainWindow(QMainWindow):
             f"color: {color}; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;",
         )
 
-    def _set_status(self, message: str):
+    def _set_status(self, message: str) -> None:
         self.lbl_status.setText(message)
 
-    def _toggle_engine(self):
+    def _toggle_engine(self) -> None:
         if self.ecu.toggle_engine():
             self._set_status("Engine started.")
         else:
@@ -615,7 +623,7 @@ class MainWindow(QMainWindow):
     # =========================================================================
     # STYLES
     # =========================================================================
-    def _apply_styles(self):
+    def _apply_styles(self) -> None:
         self.setStyleSheet(f"""
             QWidget#central {{
                 background-color: {C["bg"]};

@@ -10,6 +10,9 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+
+from common.type_defs import UDSLogByte, UDSLogEntry
 
 
 def resource_path(relative_path):
@@ -87,7 +90,7 @@ def build_uds_frame(payload: list[int]) -> list[int]:
     pci_byte = len(payload) & 0x0F
 
     # Frame = PCI + payload + padding
-    frame = [pci_byte] + payload
+    frame = [pci_byte, *payload]
     frame += [UDS_PADDING_BYTE] * (UDS_FRAME_SIZE - len(frame))
 
     return frame
@@ -162,7 +165,7 @@ def did_int_to_str(did_int: int) -> str:
 # -----------------------------------------------------------------------------
 
 
-def encode_value(value, value_type: str) -> list[int]:
+def encode_value(value: int | str, value_type: str) -> list[int]:
     """Convert Python value → list of bytes for a UDS frame.
 
     Supported types:
@@ -188,7 +191,7 @@ def encode_value(value, value_type: str) -> list[int]:
     raise ValueError(f"Unknown value type: {value_type}")
 
 
-def decode_value(raw_bytes: list[int], value_type: str):
+def decode_value(raw_bytes: list[int], value_type: str) -> int | str:
     """Convert list of bytes → Python value.
 
     Inverse of encode_value.
@@ -218,7 +221,7 @@ def decode_value(raw_bytes: list[int], value_type: str):
 # -----------------------------------------------------------------------------
 
 
-def load_json(path: str) -> dict:
+def load_json(path: str) -> dict[str, Any]:
     """Load a JSON file and return a dictionary. Return {} if file is missing."""
     full_path = resource_path(path)
     if Path(full_path).exists():
@@ -227,7 +230,7 @@ def load_json(path: str) -> dict:
     return {}
 
 
-def save_json(path: str, data: dict) -> None:
+def save_json(path: str, data: dict[str, Any]) -> None:
     """Save dictionary to a JSON file (indent=2 for readability)."""
     full_path = resource_path(path)
     Path(full_path).parent.mkdir(parents=True, exist_ok=True)
@@ -267,7 +270,7 @@ def build_uds_log_entry(
     frame: list[int],
     sender: str,
     frame_type: str = "Single Frame (SF)",
-) -> dict:
+) -> UDSLogEntry:
     """Return a structured frame dictionary for GUI visualization.
 
     - addr       : int   (e.g. 0x7E0)
@@ -294,7 +297,7 @@ def build_uds_log_entry(
 
     timestamp = f"{time.time() % 10:.3f}"
 
-    colored_bytes = []
+    colored_bytes: list[UDSLogByte] = []
 
     if len(frame) != UDS_FRAME_SIZE:
         colored_bytes.extend({"value": f"{b:02X}", "color": "#FF0000"} for b in frame)

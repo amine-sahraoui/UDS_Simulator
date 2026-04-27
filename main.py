@@ -16,14 +16,15 @@ from ui.main_window import MainWindow
 from utils import resource_path
 
 
-def main():
+def main() -> None:
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(resource_path("logo_icon.ico")))
     app.setFont(QFont("Courier New", 10))
 
     # -- Init database
     db = DatabaseHandler(
-        did_db_path="DIDs/did_database.json", users_path="DIDs/users.json",
+        did_db_path="DIDs/did_database.json",
+        users_path="DIDs/users.json",
     )
 
     # -- Login

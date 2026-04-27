@@ -13,6 +13,9 @@
 #   0x27 _ Security access
 # =============================================================================
 
+
+from typing import TYPE_CHECKING
+
 from common.db_handler import DatabaseHandler
 from common.uds_constants import (
     CLIENT_ADDR,
@@ -60,12 +63,19 @@ from utils import (
     parse_uds_frame,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from common.type_defs import UDSLogEntry
+
 
 class ECUSimulator:
+    """Simulates an ECU by processing UDS requests and returning responses."""
+
     # -------------------------------------------------------------------------
     # Constructor
     # -------------------------------------------------------------------------
-    def __init__(self, db: DatabaseHandler, role: str):
+    def __init__(self, db: DatabaseHandler, role: str) -> None:
         """Construct a new ECUSimulator instance.
 
         Arguments:
@@ -82,7 +92,7 @@ class ECUSimulator:
         self.engine_running = bool(self.db.get_did_value(DID_VEHICLE_SPEED))
         # Callback used by GUI to receive log entries.
         # Example: ecu.on_frame_logged = my_gui_function
-        self.on_frame_logged = None
+        self.on_frame_logged: Callable[[UDSLogEntry], None] | None = None
 
     # =========================================================================
     # PUBLIC — process_request
@@ -120,10 +130,8 @@ class ECUSimulator:
             return response
 
         # -- Check session permissions
-        allowed = SESSION_SERVICE_MATRIX.get(self.current_session, {}).get(
-            "allowed_services",
-            [],
-        )
+        session_info = SESSION_SERVICE_MATRIX.get(self.current_session, None)
+        allowed = session_info.get("allowed_services", []) if session_info else []
         if sid not in allowed:
             response = self._negative_response(
                 sid,
@@ -390,12 +398,6 @@ class ECUSimulator:
             )
         sub = payload[1]
 
-        if sub not in [0x01, 0x02]:
-            return self._negative_response(
-                SID_SECURITY_ACCESS,
-                NRC_SUBFUNCTION_NOT_SUPPORTED,
-            )
-
         # -- 0x01: Seed request
         if sub == 0x01:
             # must be exactly [0x27, 0x01] — no extra bytes
@@ -461,6 +463,12 @@ class ECUSimulator:
             response_payload = [SID_SECURITY_ACCESS + POSITIVE_RESPONSE_OFFSET, 0x02]
             return build_uds_frame(response_payload)
 
+        # -- sub not 0x01 or 0x02 → sub-function not supported
+        return self._negative_response(
+            SID_SECURITY_ACCESS,
+            NRC_SUBFUNCTION_NOT_SUPPORTED,
+        )
+
     # =========================================================================
     # HELPERS
     # =========================================================================
@@ -475,7 +483,7 @@ class ECUSimulator:
         payload = [NEGATIVE_RESPONSE_SID, sid, nrc]
         return build_uds_frame(payload)
 
-    def _log(self, addr: int, frame: list[int], sender: str):
+    def _log(self, addr: int, frame: list[int], sender: str) -> None:
         """Send log entry to GUI via callback. No-op if callback is not connected."""
         if self.on_frame_logged:
             entry = build_uds_log_entry(addr, frame, sender)
@@ -527,6 +535,6 @@ class ECUSimulator:
             self.start_engine()
         return self.engine_running
 
-    def set_role(self, role: str):
+    def set_role(self, role: str) -> None:
         """Update role when user switches account."""
         self.role = role

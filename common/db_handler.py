@@ -10,9 +10,15 @@
 
 import os
 
+from common.type_defs import (
+    DIDInfo,
+    DIDInfoWithId,
+    DIDValue,
+    UserRecord,
+)
 from common.uds_constants import (
     ROLE_ADMIN,
-    ROLE_PERMISSIONS,
+    ROLE_PERMISSIONS_MAP,
     ROLE_READER,
     ROLE_TECHNICIAN,
 )
@@ -20,6 +26,8 @@ from utils import did_str_to_int, load_json, resource_path, save_json
 
 
 class DatabaseHandler:
+    """Handles DID and user databases."""
+
     # -------------------------------------------------------------------------
     # Constructor: load both JSON databases.
     # -------------------------------------------------------------------------
@@ -27,19 +35,19 @@ class DatabaseHandler:
         self,
         did_db_path: str = "DIDs/did_database.json",
         users_path: str = "DIDs/users.json",
-    ):
+    ) -> None:
         self.did_db_path = did_db_path
         self.users_path = users_path
 
-        self.did_db = {}  # DID database — dict in memory (dynamic)
-        self.users = {}  # Users database — dict in memory
+        self.did_db: dict[str, DIDInfo] = {}  # DID database — dict in memory (dynamic)
+        self.users: dict[str, UserRecord] = {}  # Users database — dict in memory
 
         self._load_databases()
 
     # -------------------------------------------------------------------------
     # _load_databases: private helper that loads both JSON files.
     # -------------------------------------------------------------------------
-    def _load_databases(self):
+    def _load_databases(self) -> None:
         self.did_db = load_json(self.did_db_path)
         # 1. Load DID database
         self.did_db = load_json(self.did_db_path)
@@ -58,7 +66,7 @@ class DatabaseHandler:
     # -------------------------------------------------------------------------
     # _default_users: return default users when users.json is missing.
     # -------------------------------------------------------------------------
-    def _default_users(self) -> dict:
+    def _default_users(self) -> dict[str, UserRecord]:
         return {
             "admin": {"password": "admin123", "role": ROLE_ADMIN},
             "technician": {"password": "tech456", "role": ROLE_TECHNICIAN},
@@ -68,14 +76,14 @@ class DatabaseHandler:
     # -------------------------------------------------------------------------
     # _save_users: persist users dictionary to users.json.
     # -------------------------------------------------------------------------
-    def _save_users(self):
+    def _save_users(self) -> None:
         save_json(self.users_path, self.users)
 
     # =========================================================================
     # AUTH
     # =========================================================================
 
-    def authenticate_user(self, username: str, password: str):
+    def authenticate_user(self, username: str, password: str) -> str | None:
         """Validate username and password.
 
         - If valid: return role (ROLE_ADMIN / ROLE_TECHNICIAN / ROLE_READER)
@@ -89,7 +97,7 @@ class DatabaseHandler:
             # → None
 
         """
-        user = self.users.get(username)
+        user: UserRecord | None = self.users.get(username)
 
         if user is None:
             return None  # Username not found.
@@ -103,7 +111,7 @@ class DatabaseHandler:
     # DID — READ
     # =========================================================================
 
-    def get_did_info(self, did: int) -> dict:
+    def get_did_info(self, did: int) -> DIDInfo:
         """Return complete info for one DID (name, value, type, roles...).
 
         - did    : int — e.g. 0xF40D
@@ -130,7 +138,7 @@ class DatabaseHandler:
             },
         )
 
-    def get_did_value(self, did: int):
+    def get_did_value(self, did: int) -> DIDValue:
         """Return current DID value from in-memory runtime data.
 
         - did    : int — e.g. 0xF40D
@@ -139,13 +147,13 @@ class DatabaseHandler:
         info = self.get_did_info(did)
         return info.get("value")
 
-    def get_all_dids(self) -> list[dict]:
+    def get_all_dids(self) -> list[DIDInfoWithId]:
         """Return list of all available DIDs for GUI display.
 
         Return: list of dicts. Each dict includes:
             {"did_int": 0xF40D, "did_str": "0xF40D", "name": "Vehicle Speed", ...}
         """
-        result = []
+        result: list[DIDInfoWithId] = []
         for key, info in self.did_db.items():
             if key.startswith("_"):  # skip _comment keys
                 continue
@@ -166,7 +174,7 @@ class DatabaseHandler:
     # DID — WRITE
     # =========================================================================
 
-    def set_did_value(self, did: int, new_value) -> bool:
+    def set_did_value(self, did: int, new_value: DIDValue) -> bool:
         """Update DID value in memory (not persisted to JSON by default).
 
         - did       : int — e.g. 0xF40D
@@ -182,7 +190,7 @@ class DatabaseHandler:
         self.did_db[key]["value"] = new_value
         return True
 
-    def save_did_database(self):
+    def save_did_database(self) -> None:
         """Save current DID database state to did_database.json."""
         save_json(self.did_db_path, self.did_db)
 
@@ -208,7 +216,12 @@ class DatabaseHandler:
             return False, f"DID 0x{did:04X} is not readable"
 
         # 2. Role permission global
-        if not ROLE_PERMISSIONS.get(role, {}).get("can_read", False):
+        role_permissions = ROLE_PERMISSIONS_MAP.get(role, None)
+        if role_permissions is None:
+            return False, f"Role '{role}' is not recognized in the system"
+
+        permission = role_permissions.get("can_read", False)
+        if not permission:
             return False, f"Role '{role}' does not have can_read permission"
 
         # 3. DID-specific roles
@@ -220,12 +233,22 @@ class DatabaseHandler:
 
     def can_change_session(self, role: str) -> tuple[bool, str]:
         """Check whether role can change session."""
-        if ROLE_PERMISSIONS.get(role, {}).get("can_change_session", False):
+        role_permissions = ROLE_PERMISSIONS_MAP.get(role, None)
+        if role_permissions is None:
+            return False, f"Role '{role}' is not recognized in the system"
+
+        permission = role_permissions.get("can_change_session", False)
+        if permission:
             return True, ""
         return False, f"Role '{role}' is not allowed to change session"
 
     def can_reset_ecu(self, role: str) -> tuple[bool, str]:
         """Check whether role can reset ECU."""
-        if ROLE_PERMISSIONS.get(role, {}).get("can_reset", False):
+        role_permissions = ROLE_PERMISSIONS_MAP.get(role, None)
+        if role_permissions is None:
+            return False, f"Role '{role}' is not recognized in the system"
+
+        permission = role_permissions.get("can_reset", False)
+        if permission:
             return True, ""
         return False, f"Role '{role}' is not allowed to reset ECU"

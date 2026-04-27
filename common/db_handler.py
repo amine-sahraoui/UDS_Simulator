@@ -48,7 +48,6 @@ class DatabaseHandler:
     # _load_databases: private helper that loads both JSON files.
     # -------------------------------------------------------------------------
     def _load_databases(self) -> None:
-        self.did_db = load_json(self.did_db_path)
         # 1. Load DID database
         self.did_db = load_json(self.did_db_path)
 

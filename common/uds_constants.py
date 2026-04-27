@@ -242,7 +242,6 @@ NRC_NAMES = {
     NRC_INVALID_KEY: "invalidKey",
     NRC_SERVICE_NOT_SUPPORTED_IN_SESSION: "serviceNotSupportedInActiveSession",
     NRC_REQUEST_SEQUENCE_ERROR: "requestSequenceError",
-    NRC_INVALID_KEY: "invalidKey",
     NRC_REQUEST_TOO_LONG: "requestTooLong",
     NRC_EXCEEDED_NUMBER_OF_ATTEMPTS: "exceededNumberOfAttempts",
 }

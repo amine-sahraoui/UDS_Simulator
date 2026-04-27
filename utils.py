@@ -14,15 +14,6 @@ from typing import Any
 
 from common.type_defs import UDSLogByte, UDSLogEntry
 
-
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS  # PyInstaller temp folder
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
-
-
 # -----------------------------------------------------------------------------
 # 1. resource_path — PyInstaller compatibility
 # -----------------------------------------------------------------------------

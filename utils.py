@@ -7,9 +7,9 @@
 # =============================================================================
 
 import json
-import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 
 def resource_path(relative_path):
@@ -37,12 +37,12 @@ def resource_path(relative_path: str) -> str:
     """
     if hasattr(sys, "_MEIPASS"):
         # Packaged mode: files are extracted in a temporary folder.
-        base_path = sys._MEIPASS
+        base_path = Path(sys._MEIPASS)
     else:
         # Development mode: files live next to the project code.
-        base_path = os.path.abspath(os.path.dirname(__file__))
+        base_path = Path().cwd()
 
-    return os.path.join(base_path, relative_path)
+    return str(base_path / relative_path)
 
 
 # -----------------------------------------------------------------------------
@@ -221,8 +221,8 @@ def decode_value(raw_bytes: list[int], value_type: str):
 def load_json(path: str) -> dict:
     """Load a JSON file and return a dictionary. Return {} if file is missing."""
     full_path = resource_path(path)
-    if os.path.exists(full_path):
-        with open(full_path, "r", encoding="utf-8") as f:
+    if Path(full_path).exists():
+        with Path(full_path).open(encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -230,8 +230,8 @@ def load_json(path: str) -> dict:
 def save_json(path: str, data: dict) -> None:
     """Save dictionary to a JSON file (indent=2 for readability)."""
     full_path = resource_path(path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, "w", encoding="utf-8") as f:
+    Path(full_path).parent.mkdir(parents=True, exist_ok=True)
+    with Path(full_path).open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 

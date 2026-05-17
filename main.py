@@ -4,26 +4,27 @@
 # =============================================================================
 
 import sys
-from PyQt5.QtWidgets import QApplication, QDialog
-from PyQt5.QtGui     import QFont, QIcon
 
-from common.db_handler  import DatabaseHandler
-from ecu.ecu_simulator  import ECUSimulator
-from client.uds_client  import UDSClient
-from ui.login_window    import LoginWindow
-from ui.main_window     import MainWindow
+from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtWidgets import QApplication, QDialog
+
+from client.uds_client import UDSClient
+from common.db_handler import DatabaseHandler
+from ecu.ecu_simulator import ECUSimulator
+from ui.login_window import LoginWindow
+from ui.main_window import MainWindow
 from utils import resource_path
 
 
-def main():
+def main() -> None:
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(resource_path("logo_icon.ico")))
     app.setFont(QFont("Courier New", 10))
 
     # -- Init database
     db = DatabaseHandler(
-        did_db_path = "DIDs/did_database.json",
-        users_path  = "DIDs/users.json"
+        did_db_path="DIDs/did_database.json",
+        users_path="DIDs/users.json",
     )
 
     # -- Login
@@ -32,9 +33,9 @@ def main():
         sys.exit(0)
 
     role = login.logged_role
-    #role = "admin"
+    # role = "admin"
     # -- Init ECU + Client
-    ecu    = ECUSimulator(db=db, role=role)
+    ecu = ECUSimulator(db=db, role=role)
     client = UDSClient(ecu=ecu)
 
     # -- Main window

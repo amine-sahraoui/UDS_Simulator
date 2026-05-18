@@ -1,0 +1,14 @@
+[project]
+name = "uds-simulator"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyqt5>=5.15.11",
+]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'", # Later versions of PyQt5 don't have wheels for Windows, so we need uv to resolve for a version that does.
+]
